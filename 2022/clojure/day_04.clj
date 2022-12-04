@@ -1,39 +1,30 @@
 (ns day_04
-  (:require [clojure.string :as str]
-            [clojure.set :as set]))
-
-(defn read_assignment
-  [line]
-  (let [[a b c d] (map parse-long (str/split line #"-|,"))]
-    (list
-     (set (range a (+ 1 b)))
-     (set (range c (+ 1 d))))))
+  (:require [clojure.string :as str]))
 
 (defn read_input
   [filename]
-  (map read_assignment (str/split (slurp filename) #"\n")))
+  (partition 4 (map parse-long (str/split (slurp filename) #"[\n,-]"))))
 
-(defn fully-contained?
-  [assignment]
-  (let [[first second] assignment]
-    (or (set/subset? first second)
-        (set/subset? second first))))
+(defn fully_contained?
+  [a b c d]
+  (or (<= a c d b) (<= c a b d)))
 
 (defn overlapping?
-  [assignment]
-  (let [[first second] assignment]
-    (> (count (set/intersection first second)) 0)))
+  [a b c d]
+  (or (fully_contained? a b c d)
+      (<= a c b d)
+      (<= c a d b)))
 
 (defn part-1
   [filename]
   (->> (read_input filename)
-       (filter fully-contained?)
+       (filter #(apply fully_contained? %))
        (count)))
 
 (defn part-2
   [filename]
   (->> (read_input filename)
-       (filter overlapping?)
+       (filter #(apply overlapping? %))
        (count)))
 
 (part-1 "../inputs/day_04_test.txt")
