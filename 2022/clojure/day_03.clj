@@ -11,7 +11,7 @@
   (let [half (/ (count rucksack) 2)
         first-half (set (take half rucksack))
         second-half (set (drop half rucksack))]
-  (first (set/intersection first-half second-half))))
+    (first (set/intersection first-half second-half))))
 
 (defn is_upper?
   [letter]
