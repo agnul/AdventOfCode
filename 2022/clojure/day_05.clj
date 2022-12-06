@@ -47,7 +47,7 @@
   (loop [i 0 res stacks]
     (if-not (< i times)
       res
-      (recur (+ 1 i) (move-one-crate res from to)))))
+      (recur (inc i) (move-one-crate res from to)))))
 
 (defn with-crate-master-9001
   [stacks cnt from to]
