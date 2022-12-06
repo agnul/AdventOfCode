@@ -3,9 +3,7 @@
 (defn has-received-marker?
   [stream offset size]
   (let [packet (subs stream (- offset size) offset)]
-    (and
-     (> offset size)
-     (= (count packet) (count (set packet))))))
+    (= size (count (set packet)))))
 
 (defn find-marker
   [stream size]
