@@ -13,11 +13,6 @@
        str/split-lines
        (map parse-move)))
 
-(def test-input
-  (->> "R 4\nU 4\nL 3\nD 1\nR 4\nD 1\nL 5\nR 2"
-       str/split-lines
-       (map parse-move)))
-
 (defn add
   [[x0 y0] [x1 y1]]
   [(+ x0 x1) (+ y0 y1)])
@@ -48,27 +43,44 @@
     (add tail (delta head tail))
     tail))
 
-(defn move-times
-  [state times direction]
-  (loop [i 0 state state]
-    (if (< i times)
-      (let [new-head (move-once (:head state) direction)
-            new-tail (move-tail new-head (:tail state))
-            visited (conj (:visited state) new-tail)]
-        (recur (inc i) {:head new-head, :tail new-tail, :visited visited}))
-      state)))
+(defn move-segments
+  [state direction]
+  (let [{:keys [rope visited]} state
+        new-rope (reduce (fn [head tail]
+                           ((conj head (move-tail (peek head) tail))))
+                         [(move-once (first rope) direction)]
+                         (rest rope))]
+    {:rope new-rope, :visited (conj visited (peek new-rope))}))
+
+(defn move-rope
+  [size instructions]
+  (->> instructions
+       (reduce
+        (fn [state [direction times]]
+          (nth (iterate #(move-segments % direction) state) times))
+        {:rope (repeat size [0 0]), :visited #{[0 0]}})
+       :visited
+       count))
 
 (defn part-1
   [input]
-  (let [initial-state {:head [0 0]
-                       :tail [0 0]
-                       :visited #{[0 0]}}]
-    (count (:visited
-            (loop [state initial-state moves input]
-              (if (first moves)
-                (let [[dir cnt] (first moves)]
-                  (recur (move-times state cnt dir) (rest moves)))
-                state))))))
+  (move-rope 2 input))
+
+(defn part-2
+  [input]
+  (move-rope 10 input))
+
+(def test-input
+  (->> "R 4\nU 4\nL 3\nD 1\nR 4\nD 1\nL 5\nR 2"
+       str/split-lines
+       (map parse-move)))
+
+(def test-input-2
+  (->> "R 5\nU 8\nL 8\nD 3\nR 17\nD 10\nL 25\nU 20\n"
+       str/split-lines
+       (map parse-move)))
 
 (part-1 test-input)
 (part-1 (parse-input "../inputs/day_09.txt"))
+(part-2 test-input-2)
+(part-2 (parse-input "../inputs/day_09.txt"))
