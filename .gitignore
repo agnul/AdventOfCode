@@ -130,3 +130,5 @@ dmypy.json
 
 # Don't commit input files
 **/inputs
+
+.fake
