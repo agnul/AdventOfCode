@@ -1,8 +1,8 @@
 Advent of Code 2022
 ===================
 
-Advent of code 2022 done in Clojure. I don't (yet?) know anything about 
-Clojure and my only exposure to functional programming comes from way 
+Advent of code 2022 done in Clojure. I don't (yet?) know anything about
+Clojure and my only exposure to functional programming comes from way
 back in school and the streams and lambdas in java 8. How far will I get?
 
 
@@ -17,10 +17,11 @@ Table of contents
 
 Day 1 - Calorie Counting
 ------------------------
+
 [Solution][d01-clj] - [Back to top][top]
 
-We are given a list of number groups, each group separated from the others 
-with a blank line, each number on its own line. For part one we have to find 
+We are given a list of number groups, each group separated from the others
+with a blank line, each number on its own line. For part one we have to find
 the largest sum of the numbers in a block.
 
 We start parsing the input: we [read the whole][docs-slurp] file and split
@@ -32,8 +33,8 @@ on blank lines
   (mapv parse-meal (str/split (slurp filename) #"\n\n")))
 ```
 
-and for each line in the groups we read we apply `Long/parseLong` to 
-obtain numbers. On older versions of Clojure we resort to the static 
+and for each line in the groups we read we apply `Long/parseLong` to
+obtain numbers. On older versions of Clojure we resort to the static
 method `java.lang.Long.parseLong` in an anoymous function since there's
 no `parse-long` in `core` and Java interop is like that `¯\_(ツ)_/¯`
 
@@ -79,22 +80,23 @@ like before, sort in decreasing order...
 
 Day 2 - Rock Paper Scissors
 ---------------------------
+
 [Solution][d02-clj] - [Back to top][top]
 
 We are given a list of _instructions_ to follow when playing a game
 of rock, paper, scissors. Each line of the input files has two letters
-separated by a blank. The first letter is one of `A`, `B`, `C`, 
-respectively for Rock, Paper or Scissors. Likewise the second letter is 
+separated by a blank. The first letter is one of `A`, `B`, `C`,
+respectively for Rock, Paper or Scissors. Likewise the second letter is
 one of `X`, `Y`, `Z`. Each one of Rock, Paper and Scissors has a score:
 `1` for Rock, `2` for Paper and `3` for Scissors. For each round we
 gain `0` points if we loose, `3` for a draw and `6` for a win.
 
 Since the input is so simple we won't bother with parsing and we'll just
 take each line and map it to a score. For part one we want the total score
-after all the rounds are played, and the score is calculated as the sum of 
-the round result and the value of the symbol we'll play, e.g. for `A X` 
+after all the rounds are played, and the score is calculated as the sum of
+the round result and the value of the symbol we'll play, e.g. for `A X`
 our opponent will play Rock (`A`) and we'll play Rock as well (`X`); the
-resulting soore will be `4` points, `3` because the round is a draw and 
+resulting soore will be `4` points, `3` because the round is a draw and
 `1` because we play Rock.
 
 ```clojure
@@ -125,7 +127,7 @@ Part two is almost identical to part one, but this time each line of the
 input tells us what our opponent will play and the desired outcome of the
 round, `X` for a loss, `Y` for a draw and `Z` for a win. Again, each line
 has a score, e.g. for `A X` our opponent will play Rock and we want a loss,
-so we'll play Scissors, resulting in `3` points for playing Scissors and 
+so we'll play Scissors, resulting in `3` points for playing Scissors and
 `0` points for a loss.
 
 ```clojure
@@ -143,6 +145,7 @@ so we'll play Scissors, resulting in `3` points for playing Scissors and
 
 Day 3 - Rucksack Reorganization
 -------------------------------
+
 [Solution][d03-clj] - [Back to top][top]
 
 We are given a list of strings of lower and uppercase letters. For part
@@ -152,7 +155,7 @@ For each of the strings we must find the one repeated letter, assign it
 a value and take the sum of all the found values. Letters `a` to `z`
 have values `1` to `26`, `A` to `Z` are `27` to `52`.
 
-Reading the input is trivial: `slurp` the file, split on newlines and 
+Reading the input is trivial: `slurp` the file, split on newlines and
 turn each line into a [sequence][docs-seq] of characters.
 
 ```clojure
@@ -162,7 +165,7 @@ turn each line into a [sequence][docs-seq] of characters.
 ```
 
 We need to tell if a charater is upper or lower case, and to do so
-we convert the character to an integer and check that the resulting 
+we convert the character to an integer and check that the resulting
 number is between the values of `A` and `Z`
 
 ```clojure
@@ -172,8 +175,8 @@ number is between the values of `A` and `Z`
 ```
 
 With that we can calculate the score of each character: for upper
-case characters we subtract `A`, which results in a number between 
-`0` for `A` and `25`for `Z`, and since we need scores from `27` to 
+case characters we subtract `A`, which results in a number between
+`0` for `A` and `25`for `Z`, and since we need scores from `27` to
 `52` we add `27`. For lowercase characters we subtract `a` and add
 `1`
 
@@ -186,7 +189,7 @@ case characters we subtract `A`, which results in a number between
 ```
 
 To find the character that is common to the two halves of a sequence
-we split it in two and convert each half into a [`set`][docs-set] and 
+we split it in two and convert each half into a [`set`][docs-set] and
 take the [intersection][docs-intersection] of the two
 
 
@@ -212,14 +215,14 @@ Putting it all together we can solve part one
 ```
 
 For part two we are asked to split the initial list in groups of three
-elements 
+elements
 
 ```clojure
 (let [elf-groups (partition 3 (map set (read_input filename)))]
     ...)
 ```
 
-and then find the one letter that is commont to all of them. 
+and then find the one letter that is commont to all of them.
 
 ```clojure
 (defn find-badge
@@ -243,14 +246,92 @@ scores of each group
 
 Day 4 - Camp Cleanup
 -------------------
+
 [Solution][d04-clj] - [Back to top][top]
 
+We're given a list of integer ranges, two to a line. We start with parsing:
+each line has the form
+
+```text
+a-b,c-d
+```
+
+with `a`, `b`, `c` and `d` integer numbers. We don't need nothing fancy,
+just read the whole file, split the string on newlines, dashes and commas
+and divide the resulting numbers in groups of four
+
+```clojure
+(defn read_input
+  [filename]
+  (partition 4 (map parse-long (str/split (slurp filename) #"[\n,-]"))))
+```
+
+For part one we want to know for how many of them one of the two is
+fully contained in the other, so it's either one of the two cases
+
+```text
+A----------B      C----------D
+   C-------D        A-------B
+```
+
+Note that `A` could be equal to `C` and `B` to `D`.
+
+We can express the above with the function
+
+```clojure
+(defn fully_contained?
+  [a b c d]
+  (or (<= a c d b) (<= c a b d)))
+```
+
+And just count how many ranges are left after filtering the original
+list
+
+```clojure
+(defn part-1
+  [filename]
+  (->> (read_input filename)
+       (filter #(apply fully_contained? %))
+       (count)))
+```
+
+For part two we want to know how many ranges overlap. Two ranges
+overlap if one fully contains the other or either of the two is
+true
+
+```text
+A----------B            A----------B
+       C-------D      C-------D
+
+```
+
+Again `C` could be equal to `B`.
+
+We just define
+
+```clojure
+(defn overlapping?
+  [a b c d]
+  (or (fully_contained? a b c d)
+      (<= a c b d)
+      (<= c a d b)))
+```
+
+and swap it the `part-1` function
+
+```clojure
+(defn part-2
+  [filename]
+  (->> (read_input filename)
+       (filter #(apply overlapping? %))
+       (count)))
+```
 
 
---- 
+---
 [top]: #advent-of-code-2022
 
-[d01]: #day-1---calorie-couting
+[d01]: #day-1---calorie-counting
 [d02]: #day-2---rock-paper-scissors
 [d03]: #day-3---rucksack-reorganization
 [d04]: #day-4---camp-cleanup
