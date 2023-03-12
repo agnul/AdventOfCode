@@ -384,9 +384,9 @@ need to reverse the list of stacks when we're finished.
     ; start with a dummy stack at position zero
     ; so we don't have to fix indexes in instructions
     (loop [i 1 stacks '((\0))]
-      (if-not (< i line-length)
-        (reverse stacks)
-        (recur (+ i 4) (conj stacks (read-stack input i mod)))))))
+      (if (< i line-length)
+        (recur (+ i 4) (conj stacks (read-stack input i mod)))
+        (reverse stacks)))))
 ```
 
 `read-stack` works pretty similarly: we start on the first element of each
@@ -398,9 +398,9 @@ so we need to reverse it before returning.
 (defn read-stack
   [input column mod]
   (loop [offset column stack ()]
-    (if-not (< offset (count input))
-      (reverse stack)
-      (recur (+ offset mod) (push-crate (nth input offset) stack)))))
+    (if(< offset (count input))
+      (recur (+ offset mod) (push-crate (nth input offset) stack))
+      (reverse stack))))
 ```
 
 `push-stack` simply adds a new character to the head of a list, filtering
@@ -445,9 +445,9 @@ To repeat one move `times` times we just loop
 (defn with-crate-master-9000
   [stacks times from to]
   (loop [i 0 res stacks]
-    (if-not (< i times)
-      res
-      (recur (inc i) (move-one-crate res from to)))))
+    (if (< i times)
+      (recur (inc i) (move-one-crate res from to))
+      res)))
 ```
 
 and to apply all the instructions in the file we just pass the above
@@ -459,9 +459,9 @@ function to `move-stacks-in`
   (let [{:keys [stacks instructions]}
         (read-input filename)]
     (loop [moves instructions res stacks]
-      (if (empty? moves)
-        res
-        (recur (rest moves) (apply move-fn res (first moves)))))))
+      (if-not (empty? moves)
+        (recur (rest moves) (apply move-fn res (first moves)))
+        res))))
 ```
 
 Note that moving the crates one at a time means that when moving multiple

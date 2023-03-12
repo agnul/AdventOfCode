@@ -10,9 +10,9 @@
 (defn read-stack
   [input column mod]
   (loop [offset column stack ()]
-    (if-not (< offset (count input))
-      (reverse stack)
-      (recur (+ offset mod) (push-crate (nth input offset) stack)))))
+    (if (< offset (count input))
+      (recur (+ offset mod) (push-crate (nth input offset) stack))
+      (reverse stack))))
 
 (defn read-stacks
   [input]
@@ -21,9 +21,9 @@
     ; start with a dummy stack at position zero
     ; so we don't have to fix indexes in instructions
     (loop [i 1 stacks '((\0))]
-      (if-not (< i line-length)
-        (reverse stacks)
-        (recur (+ i 4) (conj stacks (read-stack input i mod)))))))
+      (if (< i line-length)
+        (recur (+ i 4) (conj stacks (read-stack input i mod)))
+        (reverse stacks)))))
 
 (defn read-input
   [filename]
@@ -45,9 +45,9 @@
 (defn with-crate-master-9000
   [stacks times from to]
   (loop [i 0 res stacks]
-    (if-not (< i times)
-      res
-      (recur (inc i) (move-one-crate res from to)))))
+    (if (< i times)
+      (recur (inc i) (move-one-crate res from to))
+      res)))
 
 (defn with-crate-master-9001
   [stacks cnt from to]
@@ -62,9 +62,9 @@
   (let [{:keys [stacks instructions]}
         (read-input filename)]
     (loop [moves instructions res stacks]
-      (if (empty? moves)
-        res
-        (recur (rest moves) (apply move-fn res (first moves)))))))
+      (if-not (empty? moves)
+        (recur (rest moves) (apply move-fn res (first moves)))
+        res))))
 
 (defn top-of-stacks
   [stacks]
