@@ -13,6 +13,7 @@ Table of contents
 - [Day 2 - Rock Paper Scissors][d02]
 - [Day 3 - Rucksack Reorganization][d03]
 - [Day 4 - Camp Cleanup][d04]
+- [Day 5 - Supply Stacks][d05]
 
 
 Day 1 - Calorie Counting
@@ -328,6 +329,187 @@ and swap it the `part-1` function
 ```
 
 
+Day 5 - Supply Stacks
+---------------------
+
+[Solution][d05-clj] - [Back to top][top]
+
+We're given an input in two parts: the first is a drawing of stacked boxes,
+the second is a list of instructions for moving boxes around. As usual we
+slurp the whole file in a string, then we parse the two parts separately.
+
+For the "instructions" part we're only interested in the three numbers in
+each input line, so we can just use a regex to match one or more digits
+all over the second part of the input, applying `parse-long` and
+partitioning the resulting list every three elements.
+
+```clojure
+(defn read-input
+  [filename]
+  (let [[stacks instructions] (str/split (slurp filename) #"\n\n")]
+    {:stacks (read-stacks stacks)
+     :instructions (->> instructions
+                        (re-seq #"\d+")
+                        (map parse-long)
+                        (partition 3))}))
+```
+
+Parsing the stacks is trickier. The simple way would be to split the
+first part of the input into lines, transpose the resulting list and read
+the stacks every matching the `A..Z` characters
+
+```text
+    [D]             [N] [Z]      (\N \Z)
+[N] [C]      => [D] [C] [M]  =>  (\D \C \M)
+[Z] [M] [P]             [P]      (\P)
+```
+
+but silly old me decided for the complicated way: figure on wich columns
+are the alphabetic characters in the input (2nd, 6th, 10th...) and read
+the input char at given columns on each line, returning a list of "stacks".
+Easier said (?) than done.
+
+We start with `read-stacks`: it figures out how long each input line is and
+how many charaters need to be skipped to get to the next element in each
+colum (that's `line-lenght + 1`, as each line ends with a `\newline`) and
+then loops until the last column calling `read-stack` to build a list of
+stacks. Since `conj` adds new elements to a list at the head position we
+need to reverse the list of stacks when we're finished.
+
+```clojure
+(defn read-stacks
+  [input]
+  (let [line-length (str/index-of input \newline) 
+        mod (+ 1 line-length)]
+    ; start with a dummy stack at position zero
+    ; so we don't have to fix indexes in instructions
+    (loop [i 1 stacks '((\0))]
+      (if-not (< i line-length)
+        (reverse stacks)
+        (recur (+ i 4) (conj stacks (read-stack input i mod)))))))
+```
+
+`read-stack` works pretty similarly: we start on the first element of each
+column and call `push-crate` to add the characters into a stack, until we
+run out of input. As for `read-stacks` we're building the stack backwars, 
+so we need to reverse it before returning.
+
+```clojure
+(defn read-stack
+  [input column mod]
+  (loop [offset column stack ()]
+    (if-not (< offset (count input))
+      (reverse stack)
+      (recur (+ offset mod) (push-crate (nth input offset) stack)))))
+```
+
+`push-stack` simply adds a new character to the head of a list, filtering
+out the blanks.
+
+```clojure
+(defn push-crate
+  [crate stack]
+  (if-not (= crate \space)
+    (conj stack crate)
+    stack))
+```
+
+At the end of all that we're left with a list of stacks (each one a list of
+characters) and a list of instructions (each one a list of three numbers).
+Note that we have an extra empty stack at the start so we don't need to fix
+the commands (list elements start at index `0`, the instructions we're given
+assume stacks start at `1`) and that at the eand of each stack we left an
+extra character that identifies the stack: that will be useful later (?).
+The problem ask us to move crates between stacks, with each line in the
+instrcutions made of a number of crates, the stacks to move them from and.
+the destination, e.g. `(3 1 3)` meaning move three crates from stack number
+one to stack number three. For part one we move crates one at a time, so the
+above means repeating three times a single crate move from stack one to
+stack thee. To move a single crate all we need to do is `replace` the origin
+stack with a new one without its first element and the destination stack
+with a one with the moved element on top.
+
+```clojure
+(defn move-one-crate
+  [stacks from to]
+  (let [from-stack (nth stacks from)
+        to-stack (nth stacks to)
+        crate (first from-stack)]
+    (replace {from-stack (rest from-stack)
+              to-stack (conj to-stack crate)} stacks)))
+```
+
+To repeat one move `times` times we just loop 
+
+```clojure
+(defn with-crate-master-9000
+  [stacks times from to]
+  (loop [i 0 res stacks]
+    (if-not (< i times)
+      res
+      (recur (inc i) (move-one-crate res from to)))))
+```
+
+and to apply all the instructions in the file we just pass the above
+function to `move-stacks-in`
+
+```clojure
+(defn move-stacks-in
+  [filename move-fn]
+  (let [{:keys [stacks instructions]}
+        (read-input filename)]
+    (loop [moves instructions res stacks]
+      (if (empty? moves)
+        res
+        (recur (rest moves) (apply move-fn res (first moves)))))))
+```
+
+Note that moving the crates one at a time means that when moving multiple
+crates they land on the destination in reverse order.
+
+After all the moves are done we want to know what word the top of each stack
+spells (note that we drop the first dummy stack)
+
+```clojure
+(defn top-of-stacks
+  [stacks]
+  (->> stacks
+       (map first)
+       (drop 1)
+       (apply str)))
+```
+
+Wrapping it all up for part one:
+
+```clojure
+(defn part-1
+  [filename]
+  (top-of-stacks (move-stacks-in filename with-crate-master-9000)))
+```
+
+In part two we do the same, but this time we move all the crates at once.
+We can reuse all of the above and just create a new function to pass to
+`move-stacks-in` (I still haven't figure out the whole `cons`, `conj` and
+`into` stuff)
+
+```clojure
+(defn with-crate-master-9001
+  [stacks cnt from to]
+  (let [from-stack (nth stacks from)
+        to-stack (nth stacks to)
+        crates (take cnt from-stack)]
+    (replace {from-stack (drop cnt from-stack)
+              to-stack (into to-stack (reverse crates))} stacks)))
+```
+
+and then it's just
+
+```clojure
+(defn part-2
+  [filename]
+  (top-of-stacks (move-stacks-in filename with-crate-master-9001)))
+```
+
 ---
 [top]: #advent-of-code-2022
 
@@ -335,12 +517,14 @@ and swap it the `part-1` function
 [d02]: #day-2---rock-paper-scissors
 [d03]: #day-3---rucksack-reorganization
 [d04]: #day-4---camp-cleanup
+[d05]: #day-5---supply-stacks
 
 
 [d01-clj]: https://github.com/agnul/AdventOfCode/blob/main/2022/clojure/day_01.clj
 [d02-clj]: https://github.com/agnul/AdventOfCode/blob/main/2022/clojure/day_02.clj
 [d03-clj]: https://github.com/agnul/AdventOfCode/blob/main/2022/clojure/day_03.clj
 [d04-clj]: https://github.com/agnul/AdventOfCode/blob/main/2022/clojure/day_04.clj
+[d05-clj]: https://github.com/agnul/AdventOfCode/blob/main/2022/clojure/day_05.clj
 
 
 [docs-slurp]: https://clojuredocs.org/clojure.core/slurp
