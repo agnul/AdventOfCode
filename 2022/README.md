@@ -14,6 +14,7 @@ Table of contents
 - [Day 3 - Rucksack Reorganization][d03]
 - [Day 4 - Camp Cleanup][d04]
 - [Day 5 - Supply Stacks][d05]
+- [Da6 6 - Tuning Trouble][d06]
 
 
 Day 1 - Calorie Counting
@@ -510,6 +511,41 @@ and then it's just
   (top-of-stacks (move-stacks-in filename with-crate-master-9001)))
 ```
 
+
+Day 6 - Tuning Trouble
+----------------------
+
+[Solution][d06-clj] - [Back to top][top]
+
+For day 6 we're given a string and we want to find at what location in the
+string a sequence of four unique chars ends. Readint input is a simple
+`slurp`. After that we want a function telling us if the last `size` chars
+at offset `offset` in the string `stream` are unique:
+
+```clojure
+(defn has-received-marker?
+  [stream offset size]
+  (let [packet (subs stream (- offset size) offset)]
+    (= size (count (set packet)))))
+```
+
+and then we can just iterate every possible offset until we find what we're
+looking for
+
+```clojure
+(defn find-marker
+  [stream size]
+  (loop [offset size]
+    (cond
+      (has-received-marker? stream offset size) offset
+      (> offset (count stream))                 nil
+      :else                                     (recur (inc offset)))))
+```
+
+For part two we're asked the same thing, but now we're looking for 14 unique
+chars.
+
+
 ---
 [top]: #advent-of-code-2022
 
@@ -518,6 +554,7 @@ and then it's just
 [d03]: #day-3---rucksack-reorganization
 [d04]: #day-4---camp-cleanup
 [d05]: #day-5---supply-stacks
+[d06]: #day-6---tuning-trouble
 
 
 [d01-clj]: https://github.com/agnul/AdventOfCode/blob/main/2022/clojure/day_01.clj
@@ -525,6 +562,7 @@ and then it's just
 [d03-clj]: https://github.com/agnul/AdventOfCode/blob/main/2022/clojure/day_03.clj
 [d04-clj]: https://github.com/agnul/AdventOfCode/blob/main/2022/clojure/day_04.clj
 [d05-clj]: https://github.com/agnul/AdventOfCode/blob/main/2022/clojure/day_05.clj
+[d06-clj]: https://github.com/agnul/AdventOfCode/blob/main/2022/clojure/day_06.clj
 
 
 [docs-slurp]: https://clojuredocs.org/clojure.core/slurp
