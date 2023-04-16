@@ -14,7 +14,8 @@ Table of contents
 - [Day 3 - Rucksack Reorganization][d03]
 - [Day 4 - Camp Cleanup][d04]
 - [Day 5 - Supply Stacks][d05]
-- [Da6 6 - Tuning Trouble][d06]
+- [Day 6 - Tuning Trouble][d06]
+- [Day 7 - No Space Left On Device][d07]
 
 
 Day 1 - Calorie Counting
@@ -545,6 +546,136 @@ looking for
 For part two we're asked the same thing, but now we're looking for 14 unique
 chars.
 
+Day 7 - No Space Left On Device
+-------------------------------
+
+[Solution][d07-clj] - [Back to top][top]
+
+In day 7 we're given the transcript of a terminal session made of commands
+and their output. Command lines begin with a `$` sign, output lines are
+either a number and a name (representing a file and its size) or the
+string `dir` followed by a name (representing a directory).
+
+For part one we want to find which directories have a total size of at
+most 100000, so we'll need to figure out the filesystem state from the
+terminal output. We could build a map of pathnames to sizes... or we could
+rebuild the filesystem tree! Our tree nodes will contain a name, a size
+and an optional map of names to other nodes, representing the current
+node's children:
+
+```clojure
+(defn mknode
+  [line]
+  (let [[size name] (str/split line #"\s+")]
+    (if (= "dir" size)
+      {:name name :size 0}
+      {:name name :size (parse-long size) :children {}})))
+```
+
+Then we'll need to append new nodes to existing ones
+
+```clojure
+(defn append
+  [root cwd {:keys [name size]:as node}]
+  (let [[dir & dirs] cwd
+        parent (get-in root [:children dir])]
+    (if-not (empty? cwd)
+      (-> root
+          (update :size + size)
+          (assoc-in [:children dir] (append parent dirs node)))
+      (-> root
+          (update :size + size)
+          (assoc-in [:children name] node)))))
+```
+
+With all that in place we can rebuild the tree simply checking each line
+in the transcript: if it's a command we'll just _run_ it, otherwise we
+append a new node in the filesystem tree. We'll need to keep track of the
+state as we build, so we'll use a simple map like
+`{:root file-system :cwd []}`
+
+Putthing it all together
+
+```clojure
+(defn is-command?
+  [line]
+  (str/starts-with? line "$"))
+
+(defn execute-cmd
+  [state cmd-line]
+  (let [[_ cmd arg] (str/split cmd-line #"\s+")]
+    (if (= cmd "cd")
+      (condp = arg
+        "/"  (assoc state :cwd [])
+        ".." (update state :cwd pop)
+        (update state :cwd conj arg))
+      state)))
+
+(defn add-file-or-dir
+  [{:keys [root cwd] :as state} line]
+  (assoc state :root (append root cwd (mknode line))))
+
+(defn make-tree
+  [terminal-output]
+  (:root
+   (reduce
+    (fn [state line]
+      (if (is-command? line)
+        (execute-cmd state line)
+        (add-file-or-dir state line)))
+    {:root (mknode "dir /") :cwd []}
+    terminal-output)))
+
+(defn read-input
+  [filename]
+  (->> filename
+       slurp
+       str/split-lines
+       make-tree))
+```
+
+We are now ready to solve our problem: look for directories in the tree
+(they're the nodes that have the `:children` key), keep the ones smaller
+than 100000, sum their sizes.
+
+```clojure
+(defn sub-dirs
+  [dir]
+  (filter #(contains? % :children) (vals (:children dir))))
+
+(defn dir-sizes
+  [dir]
+  (let [size (:size dir)
+        subs (sub-dirs dir)]
+    (if-not (empty? subs)
+      (conj (flatten (map dir-sizes subs)) size)
+      size)))
+
+(defn part-1
+  [filename]
+  (let [root (read-input filename)]
+    (->> root
+         dir-sizes
+         (filter #(< % 100000))
+         (reduce +))))
+```
+
+For part two we get to reuse most of the above: our device has a total
+capacity of 7'000'0000 and we need at least 3'000'0000 of free space.
+Part two asks what is the smallest subdir we must delete to achieve that
+
+```clojure
+(defn part-2
+  [filename]
+  (let [root (read-input filename)
+        free (- 70000000 (:size root))
+        goal (- 30000000 free)]
+    (->> root
+         dir-sizes
+         (filter #(>= % goal))
+         (reduce min))))
+```
+
 
 ---
 [top]: #advent-of-code-2022
@@ -555,6 +686,7 @@ chars.
 [d04]: #day-4---camp-cleanup
 [d05]: #day-5---supply-stacks
 [d06]: #day-6---tuning-trouble
+[d07]: #day-7---no-space-left-on-device
 
 
 [d01-clj]: https://github.com/agnul/AdventOfCode/blob/main/2022/clojure/day_01.clj
@@ -563,6 +695,7 @@ chars.
 [d04-clj]: https://github.com/agnul/AdventOfCode/blob/main/2022/clojure/day_04.clj
 [d05-clj]: https://github.com/agnul/AdventOfCode/blob/main/2022/clojure/day_05.clj
 [d06-clj]: https://github.com/agnul/AdventOfCode/blob/main/2022/clojure/day_06.clj
+[d07-clj]: https://github.com/agnul/AdventOfCode/blob/main/2022/clojure/day_07.clj
 
 
 [docs-slurp]: https://clojuredocs.org/clojure.core/slurp
