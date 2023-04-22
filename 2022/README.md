@@ -16,6 +16,7 @@ Table of contents
 - [Day 5 - Supply Stacks][d05]
 - [Day 6 - Tuning Trouble][d06]
 - [Day 7 - No Space Left On Device][d07]
+- [Day 8 - Treetop Tree House][d08]
 
 
 Day 1 - Calorie Counting
@@ -676,6 +677,131 @@ Part two asks what is the smallest subdir we must delete to achieve that
          (reduce min))))
 ```
 
+Day 8 - Treetop Tree House
+--------------------------
+
+[Solution][d08-clj] - [Back to top][top]
+
+In day 8 we start with a grid of numbers. We can parse that splitting the
+input into lines, splitting each line into single digit strings and parse
+those string, reassembling everything into a vector. We'll be needing the
+grid width, so we take note of the lenght of the first row, and since the
+problems will have us going into the grid both horizontally and vertically
+we'll also rearrange the input into columns.
+
+```clojure
+(defn parse-input
+  [string]
+  (let [lines (str/split-lines string)
+        rows (mapv #(mapv parse-long (str/split % #"")) lines)
+        columns (apply mapv vector rows)
+        size (count (first rows))]
+    {:rows rows :columns columns :size size}))
+```
+
+Part one wants us to count how many of the numbers are "visible" from the
+edges of the grid, meaning that there are no numbers on its left, right,
+top or bottom that are greater than or equal to it. Let's start checking
+that a numnber at row `r` and column `c` is visile. We can split each row
+(or column) three parts. Consider the number `5` at position `(1, 2)`
+(second row, third column, counting from `0`)
+
+```text
+         c
+   3 0  (3)  7 3
+r (2 5)  5  (1 2)
+   6 5  (3)  3 2
+   3 3  (5)  4 9
+   3 5  (3)  9 0
+```
+
+the numbers on the left are just `(take 2 row)`, or more specifically
+`(take 2 (nth rows 1))`, those on it's right are `(drop 3 row)` or,
+more specifically, `(drop (inc 2) (nth rows 1))`. Same goes for the
+numbers above and below, respectively `(take 1 (nth columns 2))` and
+`(drop (inc 1) (nth columns 2))`. Putting it all together we have
+
+```clojure
+(defn visible?
+  [{:keys [rows columns]} r c]
+  (let [it (nth (nth rows r) c)
+        left (take c (nth rows r))
+        right (drop (inc c) (nth rows r))
+        top (take r (nth columns c))
+        bottom (drop (inc r) (nth columns c))]
+    (or (every? #(> it %) left)
+        (every? #(> it %) right)
+        (every? #(> it %) top)
+        (every? #(> it %) bottom))))
+```
+
+We can now solve part one iterating over the grid and counting for how
+many of those the above function is true.
+
+```clojure
+(defn part-1
+  [filename]
+  (let [data (->> filename slurp parse-input)
+        size (:size data)]
+    (count (filter true?
+                   (for [r (range size)
+                         c (range size)]
+                     (visible? data r c))))))
+```
+
+Part two wants us to calculate a score for each position on the grid and
+find the highest score. To find the score at position `(r, c)` we want to
+count how many numbers on the left, right, top and bottom are smaller or
+equal to the one at that position, _stopping counting at the first one
+that is greater_. Given a list of numbers we can count how many of them
+satisfy the above condition with the function
+
+```clojure
+(defn count-visible
+  [[t & ts]]
+  (:cnt
+   (reduce
+    (fn [{:keys [cnt done] :as state} h]
+      (cond
+        (and (not done) (> t h))
+        {:cnt (inc cnt) :done false}
+
+        (not done)
+        {:cnt (inc cnt) :done true}
+
+        :else
+        state))
+    {:cnt 0 :done false} ts)))
+```
+
+with that the score of any position can be calculated with
+
+```clojure
+(defn score
+  [{:keys [rows columns]} r c]
+  (let [left (take (inc c) (nth rows r))
+        right (drop c (nth rows r))
+        top (take (inc r) (nth columns c))
+        bottom (drop r (nth columns c))
+        v1 (count-visible (reverse left))
+        v2 (count-visible right)
+        v3 (count-visible (reverse top))
+        v4 (count-visible bottom)]
+    (* v1 v2 v3 v4)))
+```
+
+and part two is solved with
+
+```clojure
+(defn part-2
+  [filename]
+  (let [data (->> filename slurp parse-input)
+        size (:size data)]
+    (apply max (for [r (range size)
+                     c (range size)]
+                 (score data r c)))))
+```
+
 
 ---
 [top]: #advent-of-code-2022
@@ -687,6 +813,7 @@ Part two asks what is the smallest subdir we must delete to achieve that
 [d05]: #day-5---supply-stacks
 [d06]: #day-6---tuning-trouble
 [d07]: #day-7---no-space-left-on-device
+[d08]: #day-7---treetop-tree-house
 
 
 [d01-clj]: https://github.com/agnul/AdventOfCode/blob/main/2022/clojure/day_01.clj
@@ -696,6 +823,7 @@ Part two asks what is the smallest subdir we must delete to achieve that
 [d05-clj]: https://github.com/agnul/AdventOfCode/blob/main/2022/clojure/day_05.clj
 [d06-clj]: https://github.com/agnul/AdventOfCode/blob/main/2022/clojure/day_06.clj
 [d07-clj]: https://github.com/agnul/AdventOfCode/blob/main/2022/clojure/day_07.clj
+[d08-clj]: https://github.com/agnul/AdventOfCode/blob/main/2022/clojure/day_08.clj
 
 
 [docs-slurp]: https://clojuredocs.org/clojure.core/slurp
