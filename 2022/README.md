@@ -17,6 +17,7 @@ Table of contents
 - [Day 6 - Tuning Trouble][d06]
 - [Day 7 - No Space Left On Device][d07]
 - [Day 8 - Treetop Tree House][d08]
+- [Day 9 - Rope Bridge][d09]
 
 
 Day 1 - Calorie Counting
@@ -802,6 +803,141 @@ and part two is solved with
                  (score data r c)))))
 ```
 
+Day 9 - Rope Bridge
+-------------------
+
+[Solution][d09-clj] - [Back to top][top]
+
+In day 9 we're simulating the movemnts of a "rope", made initially of two
+"knots" that we'll call _head_ and _tail_. We are told that head and tail
+must always touch, either horizontally, vertically or diagonally (if head
+and tail overlap that counts as touching). As soon as the head is two
+steps away horizontally or vertically the tail moves one step in the
+direction of the head. If the head and tail are not touching and are not
+horizontally or vertically aligned then the tail moves one step diagonnaly
+towards the heead.
+
+Our input contains the head's movements, one per line. We are told that
+head and tail start at the same position and we must count how many
+distinct positions the tail will visit following the head as it moves.
+
+We start parsing the input: read the input string, split lines and turn
+each line into a pair like `(direction, count)`
+
+```clojure
+(defn parse-move
+  [string]
+  (let [[direction cnt] (str/split string #"\s")]
+    (list (keyword direction) (parse-long cnt))))
+
+(defn parse-input
+  [input]
+  (->> input
+       str/split-lines
+       (map parse-move)))
+```
+
+We'll be representing the knots as a vector `[x  y]`  of coordinates and
+the rope as a list of knots, so we'll need two utility functions for
+adding and subtracting two vectors
+
+```clojure
+(defn add
+  [[x0 y0] [x1 y1]]
+  [(+ x0 x1) (+ y0 y1)])
+
+(defn sub
+  [[x0 y0] [x1 y1]]
+  [(- x0 x1) (- y0 y1)])
+```
+
+then another one for deciding in which direction the head will move
+
+```clojure
+(defn delta
+  [n1 n2]
+  (let [[dx dy] (sub n1 n2)]
+    [(if-not (zero? dx) (/ dx (abs dx)) 0)
+     (if-not (zero? dy) (/ dy (abs dy)) 0)]))
+```
+
+and a last one for deciding if the tail needs to move
+
+```clojure
+(defn tail-moves?
+  [[hx hy] [tx ty]]
+  (or (> (abs (- hx tx)) 1)
+      (> (abs (- hy ty)) 1)))
+```
+
+Moving a single knot **one step** in a given direction is done by just
+adding the `[dx dy]` vector corresponding to the direction
+
+```clojure
+(defn move-knot
+  [knot direction]
+  (let [deltas {:U [0 1], :D [0 -1], :L [-1 0], :R [1, 0]}]
+    (add knot (direction deltas))))
+```
+
+Moving the tail after the head has moved is done by
+
+```clojure
+(defn move-tail
+  [head tail]
+  (if (tail-moves? head tail)
+    (add tail (delta head tail))
+    tail))
+```
+
+and moving the whole rope **one step** in a given direction is done
+repeating the two steps above on each pair of knots in the rope (and
+keeping track of the positions occupied by the tail after each move)
+
+```clojure
+(defn move-rope
+  [{:keys [rope visited]} direction]
+  (let [moved (reduce
+               (fn [head tail]
+                 (conj head (move-tail (peek head) tail)))
+               [(move-knot (first rope) direction)]
+               (rest rope))]
+    {:rope moved, :visited (conj visited (peek moved))}))
+```
+
+To solve the problem for a rope of any size we just iterate over the
+instructions in the input, repeat for each line the single step
+`move-rope` the desired amount of times, and count how many positions
+have been saved in the `visited` set.
+
+```clojure
+(defn solve
+  [size instructions]
+  (->> instructions
+       (reduce
+        (fn [state [direction times]]
+          (nth (iterate #(move-rope % direction) state) times))
+        {:rope (repeat size [0 0]), :visited #{[0 0]}})
+       :visited
+       count))
+```
+
+For part one the rope is made of just the head and the tail
+
+```clojure
+(defn part-1
+  [input]
+  (solve 2 input))
+```
+
+while for part two the rope is make of ten knots
+
+```clojure
+(defn part-2
+  [input]
+  (solve 10 input))
+```
+
 
 ---
 [top]: #advent-of-code-2022
@@ -813,7 +949,8 @@ and part two is solved with
 [d05]: #day-5---supply-stacks
 [d06]: #day-6---tuning-trouble
 [d07]: #day-7---no-space-left-on-device
-[d08]: #day-7---treetop-tree-house
+[d08]: #day-8---treetop-tree-house
+[d09]: #day-9---rope-bridge
 
 
 [d01-clj]: https://github.com/agnul/AdventOfCode/blob/main/2022/clojure/day_01.clj
@@ -824,6 +961,7 @@ and part two is solved with
 [d06-clj]: https://github.com/agnul/AdventOfCode/blob/main/2022/clojure/day_06.clj
 [d07-clj]: https://github.com/agnul/AdventOfCode/blob/main/2022/clojure/day_07.clj
 [d08-clj]: https://github.com/agnul/AdventOfCode/blob/main/2022/clojure/day_08.clj
+[d09-clj]: https://github.com/agnul/AdventOfCode/blob/main/2022/clojure/day_09.clj
 
 
 [docs-slurp]: https://clojuredocs.org/clojure.core/slurp
