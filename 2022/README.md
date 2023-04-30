@@ -18,6 +18,7 @@ Table of contents
 - [Day 7 - No Space Left On Device][d07]
 - [Day 8 - Treetop Tree House][d08]
 - [Day 9 - Rope Bridge][d09]
+- [Day 10 - Cathode-Ray Tube][d10]
 
 
 Day 1 - Calorie Counting
@@ -938,6 +939,128 @@ while for part two the rope is make of ten knots
   (solve 10 input))
 ```
 
+Day 10 - Cathode-Ray Tube
+-------------------------
+
+[Solution][d10-clj] - [Back to top][top]
+
+In day 10 we're given a list of instructions for a device with a screen.
+Each instructions is either a no-operation (`noop`) or an addition to the
+only register available on the device's CPU (`addx`). No-op instructions
+leave the value of the register unchanged and take one clock cycle to run,
+wihle add instructions add the value given as an argument to the
+instrcution to the current value of the register and take two clock
+cycles to run. That means that the value of the register only changes at the end of the second cycle of the instructions.
+
+We start parsing the input:
+
+```clojure
+(defn parse-opcode
+  [line]
+  (let [[op arg] (str/split line #"\s+")]
+    (if-not (= op "noop") (parse-long arg) 0)))
+
+(defn parse-input
+  [input]
+  (->> input
+       str/split-lines
+       (mapv parse-opcode)))
+```
+
+Note that we're cheating: we represent instructions as integers, with `0`
+being `noop`. That only works if the arguments to `addx` are always non
+zero. Problem input seems to satisfy that condition... or maybe we're just
+lucky.
+
+Part one we wants us to sample the value of the register on the 20th clock
+cycle and every 40 cycles after that, and then to multiply that number by the clock cycle. We need to `run` the program and collect the values of
+the register at each clock cycle
+
+```clojure
+(defn collect-x-values
+  [opcodes]
+  (reduce
+   (fn [x-values op-arg]
+     (let [prev (peek x-values)]
+       (if-not (zero? op-arg)
+         (conj (conj x-values prev) (+ prev op-arg))
+         (conj x-values prev))))
+   [1] opcodes))
+```
+
+and then we can sample the value at a given clock with
+
+```clojure
+(defn sample-strength
+  [x-values clock]
+  (* clock (nth x-values (dec clock))))
+```
+
+At last we can solve part one with
+
+```clojure
+(defn part-1
+  [input]
+  (let [opcodes (parse-input input)
+        x-values (collect-x-values opcodes)
+        max-clock (count x-values)
+        sample-times (range 20 max-clock 40)]
+    (->> sample-times
+         (map #(sample-strength x-values %))
+         (reduce +))))
+```
+
+In part two we're told that the values of the `X` register represent the
+horizontal position of the center of a three pixel wide sprite on a small
+CRT screen. The electron bean sweeps the screen left to right and at each
+clock cycle it can turn on a single pixel. If at any clock cycle the beam
+overlaps with the sprite then we turn on the pixel under the electron
+beam. The CRT is made of 6 lines of 40 pixels each, and our program is
+supposed to paint a string of uppercase characters.
+
+We turn a single pixel on with
+
+```clojure
+
+(defn turn-on
+  [x-values clock crt]
+  (let [beam-pos (mod clock 40)
+        sprite-pos (nth x-values clock)]
+    (if (<= (dec beam-pos) sprite-pos (inc beam-pos))
+      (update crt clock (fn [_] "#"))
+      crt)))
+```
+
+and we paint the whole screen with
+
+```clojure
+(defn paint
+  [x-values crt]
+  (reduce (fn [crt clock]
+            (turn-on x-values clock crt))
+          crt
+          (range (* 6 40))))
+```
+
+So that the solution to part two is just
+
+```clojure
+(defn part-2
+  [input]
+  (let [opcodes (parse-input input)
+        x-values (collect-x-values opcodes)
+        crt (vec (repeat (* 6 40) "."))]
+    (->> crt
+         (paint x-values)
+         (partition 40)
+         (mapv #(reduce str %))
+         (mapv println))))
+```
+
+Note that our CRT is a single 240 value vector (as opposed to a vector
+of vectors) and it's broken into single lines only when printing the
+result.
+
 
 ---
 [top]: #advent-of-code-2022
@@ -951,6 +1074,7 @@ while for part two the rope is make of ten knots
 [d07]: #day-7---no-space-left-on-device
 [d08]: #day-8---treetop-tree-house
 [d09]: #day-9---rope-bridge
+[d10]: #day-10---cathode-ray-tube
 
 
 [d01-clj]: https://github.com/agnul/AdventOfCode/blob/main/2022/clojure/day_01.clj
@@ -962,6 +1086,7 @@ while for part two the rope is make of ten knots
 [d07-clj]: https://github.com/agnul/AdventOfCode/blob/main/2022/clojure/day_07.clj
 [d08-clj]: https://github.com/agnul/AdventOfCode/blob/main/2022/clojure/day_08.clj
 [d09-clj]: https://github.com/agnul/AdventOfCode/blob/main/2022/clojure/day_09.clj
+[d10-clj]: https://github.com/agnul/AdventOfCode/blob/main/2022/clojure/day_10.clj
 
 
 [docs-slurp]: https://clojuredocs.org/clojure.core/slurp
