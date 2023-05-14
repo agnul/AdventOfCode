@@ -19,6 +19,8 @@ Table of contents
 - [Day 8 - Treetop Tree House][d08]
 - [Day 9 - Rope Bridge][d09]
 - [Day 10 - Cathode-Ray Tube][d10]
+- [Day 11 - Monkey in the Middle][d11]<sup>†</sup>
+- [Notes][notes]
 
 
 Day 1 - Calorie Counting
@@ -396,7 +398,7 @@ need to reverse the list of stacks when we're finished.
 
 `read-stack` works pretty similarly: we start on the first element of each
 column and call `push-crate` to add the characters into a stack, until we
-run out of input. As for `read-stacks` we're building the stack backwars, 
+run out of input. As for `read-stacks` we're building the stack backwards,
 so we need to reverse it before returning.
 
 ```clojure
@@ -444,7 +446,7 @@ with a one with the moved element on top.
               to-stack (conj to-stack crate)} stacks)))
 ```
 
-To repeat one move `times` times we just loop 
+To repeat one move `times` times we just loop
 
 ```clojure
 (defn with-crate-master-9000
@@ -1061,8 +1063,226 @@ Note that our CRT is a single 240 value vector (as opposed to a vector
 of vectors) and it's broken into single lines only when printing the
 result.
 
+Day 11 - Monkey in the Middle
+-----------------------------
+
+[Solution][d11-clj] - [Back to top][top]
+
+In day 11 we're watching some monkeys throw stuff around. We're given the
+initial state (which monkey has what and what will it do with it) and are
+asked to find out how many times the two most active monkeys will look at
+one of the items. As usual we start parsing the input: each monkey ends at
+a double `\n`, and for each one we'll need to figure out a list of numbers
+(the _items_), a function that will calculate a new number for each _item_
+and a test that will decide to what monkey the _item_ will be thrown after
+a new value is calculated.
+
+```clojure
+(defn parse-monkey
+  [lines]
+  (let [[_ items op & destination] 
+        (str/split-lines lines)]
+    {:items (mapv parse-long (re-seq #"\d+" items))
+     :update (parse-update op)
+     :destination (parse-destination destination)
+     :inspections 0}))
+```
+
+The update calculation seems to only involve addition and multiplication,
+with each operand either a number or the old value. Our parsing function
+will return a function of the current _item_ value that will replace the
+`"old"` string with that value and perform the calculation in the input.
+
+```clojure
+(defn parse-update
+  [line]
+  (let [[a op b] (drop 4 (str/split line #"\s+"))
+        op-fn (condp = op
+                "+" +
+                "*" *)]
+    (fn [x]
+      (letfn [(eval [arg] (if (= "old" arg) x (parse-long arg)))]
+        (apply op-fn (map eval [a b]))))))
+```
+
+The function for deciding which monkey each item should be thrown to
+is always a test to check if an _item_ value is divisible by a certain
+number, with the number on the first line, and the monkeys that should
+receive the new _item_ on the second and third lines
+
+```clojure
+(defn parse-destination
+  [lines]
+  (let [[modulo on-true on-false]
+        (->> lines (map #(re-find #"\d+" %)) (map parse-long))]
+    (fn [x] (if (zero? (rem x modulo)) on-true on-false))))
+```
+
+Now that we have the input parsed we need code for playing a round of the
+game, where each monkeys takes its turn to look at the items, updating
+them and throwing them to another monkey. For the `i`th monkey's turn we
+do loop over the monkey's items, update the values, decide where the new
+value will go and update the monkey list accordingly. Note that the
+problem says that after updating a value and before deciding where it goes
+we should divide the new value by `3`, rounding down.
+
+```clojure
+(defn take-turn
+  [monkeys i] 
+  (loop [monkeys monkeys]
+    (let [monkey (monkeys i)
+          item (first (:items monkey))]
+      (if item
+        (let [new-item ((:update monkey) item)
+              de-stressed (quot new-item 3)
+              destination ((:destination monkey) de-stressed)]
+          (recur (-> monkeys
+                     (update-in [i :items] subvec 1)
+                     (update-in [i :inspections] inc)
+                     (update-in [destination :items] conj de-stressed))))
+        monkeys))))
+```
+
+For playng a complete round (where each monkey takes its turn) we use
+
+```clojure
+(defn play-round
+  [monkeys]
+  (reduce take-turn monkeys (range (count monkeys))))
+```
+
+and we can put it all together to solve part one.
+
+```clojure
+(defn part-1
+  [filename]
+  (->> filename
+       slurp
+       parse-input
+       (iterate play-round)
+       (drop 20)
+       first
+       (map :inspections)
+       (sort >)
+       (take 2)
+       (apply *)))
+```
+
+In part two we no longer divide values by three after inspection, and we
+are doing 10'000 rounds instead if 20. A quick check gives an overflow
+error, so some trick is required to keep numbers small. Note that all
+the update operations are either a sum or a product, and all divisibility
+checks are done on prime numbers. That has to mean something... aaaand
+a quick duckduckgo search later says [modular arithmetic][wiki-mod] is
+the key. Under modulo arithmetic
+
+- if `a ≡ b (mod n)` then `(a + c) ≡ (b + c) (mod n)`
+- if `a ≡ b (mod n)` then `(a * c) ≡ (b * c) (mod n)`
+- if `a ≡ b (mod n)` then `(a * c) ≡ (b * c) (mod c * n)`
+
+or written in clojure
+
+- if `(= (rem a n) (rem b n))` then `(= (rem (+ a c) n) (rem (+ b c) n)`
+- if `(= (rem a n) (rem b n))` then `(= (rem (* a c) n) (rem (* b c) n)`
+- if `(= (rem a n) (rem b n))` then `(= (rem (* a c) (* c n) (rem (* b c) (* c n)`
+
+Since we're only doing additions and multiplications that means that if
+instead of keeping the result of each update we keep just the remainder
+of the division by a large enough number we're going to be fine, since
+the divisibility check will have the same result. What should that large
+enough number be? For the first monkey we're checking that the result of
+the update is divisible by `23` so we could just keep `(mod n 23)`. For
+the second one we're checking agains `19`, so if we want `n` to be
+divisible by both `23` and `19` we should keep `(mod n (* 23 19))` and
+so on. We can find the number we need with
+
+```clojure
+(defn calc-big-num
+  [input]
+  (->> input
+       (re-seq #"by (\d+)")
+       (map #(parse-long (second %)))
+       (apply *)))
+
+```
+
+and since for part two we're no longer dividing the updated valyes by
+three we should factor that out
+
+```clojure
+(defn stress-reducer
+  [monkey]
+  (update monkey :update (partial comp #(quot % 3))))
+```
+
+This one is fun: afer parsing each monkey is a map, and its `:update`
+key holds the function used to re-calc _item_ values. In part one we
+need to divide each value by three after calculation: this one, called
+after parsing will update that function and chain it with the division
+we need. With that in place we need to update our `parse-monkey`
+function to take an extra argument and return a different `:update`
+function
+
+```clojure
+(defn parse-monkey
+  [big-num lines]
+  (let [[_ items op & destination]
+        (str/split-lines lines)]
+    {:items (mapv parse-long (re-seq #"\d+" items))
+     :update (comp #(mod % big-num) (parse-update op))
+     :destination (parse-destination destination)
+     :inspections 0}))
+
+```
+
+Also our `take-turn` function no longer neds to divice _item_ values by
+three
+
+```clojure
+(defn take-turn
+  [monkeys i]
+  (loop [monkeys monkeys]
+    (let [monkey (monkeys i)
+          item (first (:items monkey))]
+      (if item
+        (let [new-item ((:update monkey) item)
+              destination ((:destination monkey) new-item)]
+          (recur (-> monkeys
+                     (update-in [i :items] subvec 1)
+                     (update-in [i :inspections] inc)
+                     (update-in [destination :items] conj new-item))))
+        monkeys))))
+```
+
+and `part-1` needs to `(mapv stress-reducer)` over the monkeys after
+parsing and before iterating `play-round`.
+
+`part-2` does not need that, it just needs a different number of rounds
+to play
+
+```clojure
+(defn part-2
+  [filename]
+  (->> filename
+       slurp
+       parse-input
+       (iterate play-round)
+       (drop 10000)
+       first
+       (map :inspections)
+       (sort >)
+       (take 2)
+       (apply *)))
+```
 
 ---
+
+Notes
+-----
+
+<sup>†</sup> many ideas for Day 11 were blatantly taken from [pbruyninckx][d11-pbruyninckx]'s code
+
+
 [top]: #advent-of-code-2022
 
 [d01]: #day-1---calorie-counting
@@ -1075,6 +1295,8 @@ result.
 [d08]: #day-8---treetop-tree-house
 [d09]: #day-9---rope-bridge
 [d10]: #day-10---cathode-ray-tube
+[d11]: #day-11---monkey-in-the-middle
+[notes]: #notes
 
 
 [d01-clj]: https://github.com/agnul/AdventOfCode/blob/main/2022/clojure/day_01.clj
@@ -1087,6 +1309,7 @@ result.
 [d08-clj]: https://github.com/agnul/AdventOfCode/blob/main/2022/clojure/day_08.clj
 [d09-clj]: https://github.com/agnul/AdventOfCode/blob/main/2022/clojure/day_09.clj
 [d10-clj]: https://github.com/agnul/AdventOfCode/blob/main/2022/clojure/day_10.clj
+[d11-clj]: https://github.com/agnul/AdventOfCode/blob/main/2022/clojure/day_11.clj
 
 
 [docs-slurp]: https://clojuredocs.org/clojure.core/slurp
@@ -1094,3 +1317,5 @@ result.
 [docs-seq]: https://clojuredocs.org/clojure.core/seq
 [docs-set]: https://clojuredocs.org/clojure.core/set
 [docs-intersection]: https://clojuredocs.org/clojure.set/intersection
+[d11-pbruyninckx]: https://github.com/pbruyninckx/aoc2022/blob/main/src/aoc/day11.clj
+[wiki-mod]: https://en.wikipedia.org/wiki/Modular_arithmetic
