@@ -20,6 +20,7 @@ Table of contents
 - [Day 9 - Rope Bridge][d09]
 - [Day 10 - Cathode-Ray Tube][d10]
 - [Day 11 - Monkey in the Middle][d11]<sup>†</sup>
+- [Day 12 - Hill Climbing Algorithm][d12]
 - [Notes][notes]
 
 
@@ -1275,6 +1276,160 @@ to play
        (apply *)))
 ```
 
+Day 12 - Hill Climbing Algorithm
+--------------------------------
+
+[Solution][d12-clj] - [Back to top][top]
+
+In day 12 we're climbing a hill. Our input shows a grid of heights, with
+`a` being the lowest and `z` the highest. Two positions in the grid, marked
+`S` and `E` respectively, indicate where we start and where we want to go.
+Let'start reading the grid into a vector of vectors. We don't care about
+the values in the grid, as long as they mantain the right order (`a` then
+`b` then `c`...) so we can just map each character to it's `int` value.
+
+```clojure
+(defn read-grid
+  [data]
+  (->> data
+       str/split-lines
+       (mapv #(mapv int %))))
+```
+
+Next we want to find where our starting and ending positions are in the
+grid. This works enumerating each possible pair of coordinates in the grid,
+checking if the corresponding value is the `int` for `S` or `E` (83 and 69
+respectively) and returning the non `nil` values into a map with keys
+`:start` and `:goal`.
+
+```clojure
+(defn find-positions
+  [grid]
+  (let [coords 
+        (for [r (range (count grid))
+              c (range (count (first grid)))]
+          [r c])]
+    (->> coords
+         (map #(case (get-in grid %)
+                 83 {:start %}
+                 69 {:goal %}
+                 nil))
+         (filter identity)
+         (into {}))))
+```
+
+Since we're told that the start position is at height `a` and the end
+position is at height `z` we need to replace their values in the grid we
+parsed.
+
+```clojure
+(defn replace-position-values
+  [grid {:keys [start goal]}]
+  (-> grid
+      (assoc-in start (int \a))
+      (assoc-in goal (int \z))))
+```
+
+Putting all that together we can now parse the input. This will return
+a map with all we need to know to solve the problem: a `:grid` with the
+height values, a `:start` position and a `:goal` position.
+
+``` clojure
+(defn parse-input
+  [filename]
+  (let [grid (read-grid filename)
+        positions (find-positions grid)]
+    (into {:grid (replace-position-values grid positions)}
+          positions)))
+```
+
+We're asked to find the path from `S` to `E`, moving one step at a time
+and only to positions that are at most 1 level above the one we are moving
+from. It's time to learn search algotihms, but I'm a cheat so:
+
+- we'll do [BFS][wiki-bfs]
+- we'll do it backwards since in part two we'll need to search the
+  shortest of the paths starting at height `a`. Doing it backwards
+  saves work since we only need to search once: all steps have the
+  same weight and BFS assures us that the first time we visit a
+  certain grid position we got there by the shortest path.
+- doing it backwards means that we're no longer moving to heights
+  at most one level above, but to eights at most one level down
+
+First we need a way to get the neighbours of a diven grid position
+
+```clojure
+(defn get-neighbours 
+  [grid [x y :as pos]]
+  (let [min-h (dec (get-in grid pos))]
+    (->> [[(dec x) y]
+          [(inc x) y]
+          [x (dec y)]
+          [x (inc y)]] 
+         (filter #(if-let [new-h (get-in grid %)]
+                    (<= min-h new-h))))))
+```
+
+then we neead a function that given our parsed input and a position
+tell's us to stop searching if we reached the goal
+
+```clojure
+(defn goal-reached-part-1?
+  [{:keys [start]} pos]
+  (= pos start))
+```
+
+with all that our search function is
+
+```clojure
+(defn bfs-search
+  [goal-fn {:keys [grid goal] :as world}]
+  (loop [queue [{:d 0 :pos goal}] visited #{}]
+    (if-not (empty? queue)
+      (let [[{:keys [d pos] :as cur} & rest] queue]
+        (cond
+          (goal-fn world pos)
+          d
+
+          (visited pos)
+          (recur (vec rest) (conj visited pos))
+
+          :else
+          (recur (->> (get-neighbours grid pos)
+                      (filter #(not (visited %)))
+                      (map (fn [p] {:d (inc d) :pos p}))
+                      (into (vec rest)))
+                 (conj visited pos))))
+      nil)))
+```
+
+Part one then is just
+
+```clojure
+(defn part-1
+  [filename]
+  (->> filename
+       slurp
+       parse-input
+       (bfs-search goal-reached-part-1?)))
+```
+
+And part two just needs a new goal function
+
+```clojure
+(defn goal-reached-part-2?
+  [{grid :grid} pos]
+  (= (get-in grid pos) (int \a)))
+
+(defn part-2
+  [filename]
+  (->> filename
+       slurp
+       parse-input
+       (bfs-search goal-reached-part-2?)))
+```
+
+
 ---
 
 Notes
@@ -1296,6 +1451,7 @@ Notes
 [d09]: #day-9---rope-bridge
 [d10]: #day-10---cathode-ray-tube
 [d11]: #day-11---monkey-in-the-middle
+[d12]: #day-12---hill-climbing-algorithm
 [notes]: #notes
 
 
@@ -1310,6 +1466,7 @@ Notes
 [d09-clj]: https://github.com/agnul/AdventOfCode/blob/main/2022/clojure/day_09.clj
 [d10-clj]: https://github.com/agnul/AdventOfCode/blob/main/2022/clojure/day_10.clj
 [d11-clj]: https://github.com/agnul/AdventOfCode/blob/main/2022/clojure/day_11.clj
+[d12-clj]: https://github.com/agnul/AdventOfCode/blob/main/2022/clojure/day_12.clj
 
 
 [docs-slurp]: https://clojuredocs.org/clojure.core/slurp
@@ -1319,3 +1476,4 @@ Notes
 [docs-intersection]: https://clojuredocs.org/clojure.set/intersection
 [d11-pbruyninckx]: https://github.com/pbruyninckx/aoc2022/blob/main/src/aoc/day11.clj
 [wiki-mod]: https://en.wikipedia.org/wiki/Modular_arithmetic
+[wiki-bfs]: https://en.wikipedia.org/wiki/Breadth-first_search
