@@ -43,8 +43,7 @@
        (filter is-in-the-right-order?)
        (map first)
        (map inc)
-       (reduce +)
-       ))
+       (apply +)))
 
 (defn part-2
   [filename]

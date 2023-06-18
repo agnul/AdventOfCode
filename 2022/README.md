@@ -21,6 +21,8 @@ Table of contents
 - [Day 10 - Cathode-Ray Tube][d10]
 - [Day 11 - Monkey in the Middle][d11]<sup>†</sup>
 - [Day 12 - Hill Climbing Algorithm][d12]
+- [Day 13 - Distress Signal][d13]<sup>‡</sup>
+- [Day 14 - Regolith Reservoir][d14]
 - [Notes][notes]
 
 
@@ -1429,6 +1431,337 @@ And part two just needs a new goal function
        (bfs-search goal-reached-part-2?)))
 ```
 
+Day 13 - Distress Signal
+------------------------
+
+[Solution][d13-clj] - [Back to top][top]
+
+In day 3 we're comparing list of numbers:
+
+- numbers are compared the usual way
+- lists are compared member by member
+- an empty list is always smaller than a non-empty list
+- when comparing a number and a list we transform the number into a
+  single element list and compare the two lists
+
+As usual we start parsing the input. Since the input looks like valid
+clojure code we'll cheat and parse the input lists as vectors using
+`read-string`. That `(filter seq)` call is the idiomatic way of filtering
+out empty strings.
+
+```clojure
+(defn parse-input
+  [filename]
+  (->> filename
+       slurp
+       str/split-lines
+       (filter seq)
+       (map read-string)))
+```
+
+We then need a function to compare pairs of the vectors we just read. Like
+compare functions everywhere we're returning `-1`, `0` or `1` if the left
+side is less than, equal to or greather-than the right side.
+
+```clojure
+(defn packet-compare
+  [left right]
+  (cond
+    (and (int? left) (int? right))     (compare left right)
+    (int? left)                        (recur [left] right)
+    (int? right)                       (recur left [right])
+    (and (empty? left) (empty? right))  0
+    (empty? left)                      -1
+    (empty? right)                      1
+    :else (loop [[l & ls] left
+                 [r & rs] right]
+            (let [cmp (packet-compare l r)]
+              (if (and (zero? cmp) (or ls rs))
+                (recur ls rs)
+                cmp)))))
+```
+
+We're now ready to solve part one, which asks which of the pairs is in
+the correct order, that is for which pairs of lists the firt one (the one
+"on the left") is smaller than the second one ("on the right"). We just
+partition the input in pairs, apply the compare function above to each
+pair and save the results into an indexed vector, saving the indexes
+of the pairs in the correct order (and taking care to fix the indexes:
+our vecor is 0-based, the problem asks for 1-based). For part one we
+want the sum of the indexes, so
+
+```clojure
+(defn is-in-the-right-order?
+  [[ _ compare-result]]
+  (<= compare-result 0))
+
+(defn part-1
+  [filename]
+  (->> filename
+       parse-input
+       (partition 2)
+       (map #(apply packet-compare %))
+       (map-indexed vector)
+       (filter is-in-the-right-order?)
+       (map first)
+       (map inc)
+       (apply +)))
+```
+
+In part two we are told to add two special lists to the ones we parsed,
+sort the result with the above compare function and find the indexes at
+which the lists we added end after sorting. Easy.
+
+```clojure
+(defn is-delimiter?
+  [[_ packet]]
+   (or (= [[2]] packet) (= [[6]] packet)))
+
+(defn part-2
+  [filename]
+  (->> filename
+       parse-input
+       (cons [[2]])
+       (cons [[6]])
+       (sort packet-compare)
+       (map-indexed vector)
+       (filter is-delimiter?)
+       (map first)
+       (map inc)
+       (apply *)))
+```
+
+Day 14 - Regolith Reservoir
+---------------------------
+
+[Solution][d14-clj] - [Back to top][top]
+
+In day 14 we're tracking gfains of sand falling down a cave. Each line in the input contains one or more pairs of coordinates separated by `->`
+and representing the segments (horizontal or vertical) that make up some
+rock shelves in the cave. Each grain of sand falls dowsn from position
+`[500 0]` (y grows toward the bottom). At each step sand will fall down
+at most one unit: if the new position is not empty then it will move one
+unit to the left and if even that position is occupied it will move one
+unit to the right. If neither of the three possible positions is empty
+the grain of sand will stop at the current position and another one will
+start falling.
+
+For part one we're told that after enough sand has fallen in the cave
+every new grain of sand we'll fall to the bottom left and keep falling infinitely. We're asked how many grains of sand will fall before that
+happens.
+
+As always we start parsing the input: we want the numbers on each line,
+which we'll collect in `[x y]` pairs and then in `[[x0 y0] [x1 y1]]`
+pairs representing segments
+
+```clojure
+(defn parse-lines
+  [data]
+  (->> data
+       str/split-lines
+       (map #(re-seq #"\d+" %))
+       (map #(map parse-long %))))
+
+(defn parse-segments
+  [numbers]
+  (let [pairs (partition 2 numbers)]
+    (map vector pairs (drop 1 pairs))))
+```
+
+We'll also need to find the cave bottom (i.e. the y coordinate of the
+bottom rock shelf)
+
+```clojure
+(defn find-cave-bottom
+  [lines]
+  (->> lines
+       (map #(take-nth 2 (drop 1 %)))
+       (flatten)
+       (reduce max)))
+```
+
+We'll now add each pair that makes up a rock shelf to a `set` and join
+all those sets to get the complete cave. Looking at the input it seems
+like there's no guarantee that the segment bounds will be in the correct
+left-to-right or top-to-bottom order so well need a utility function to
+take care of that, as well as the fact that clojure's [ranges][docs-range]
+don't include the end values.
+
+```clojure
+(defn irange
+  [a b]
+  (range (min a b) (inc (max a b))))
+
+(defn add-rocks
+  [rocks [[x0 y0] [x1 y1]]]
+  (into rocks (for [x (irange x0 x1)
+                    y (irange y0 y1)]
+                [x y])))
+
+(defn parse-rock-shelves
+  [number-lines]
+  (->> number-lines
+       (map parse-segments)
+       (map #(reduce add-rocks #{} %))
+       (reduce set/union)))
+```
+
+Parsing input is then
+
+```clojure
+(defn parse-input
+  [data]
+  (let [number-lines (parse-lines data)
+        cave-bottom (find-cave-bottom number-lines)
+        rocks (parse-rock-shelves number-lines)]
+    {:rocks rocks :sand #{} :cave-bottom cave-bottom}))
+```
+
+Just to check that everything is good let's print the resulting cave.
+We need a function that given a pair `[x y]` tell's us what's in the
+cave at that position
+
+```clojure
+(defn get-in-cave
+  [{:keys [sand rocks cave-bottom]} [x y]]
+  (let [rock-floor (+ 2 cave-bottom)]
+    (cond (sand [x y])     \o
+          (rocks [x y])    \#
+          :else            \.)))
+```
+
+and a function to iterat from the top left to the bottom right of the
+cave printing what it finds at each pair of coordinates. We'll cheat and
+hardcode the boundaries (note that the x and y loops are swapped since
+we want to draw all the `x` positions for a given `y` before moving to
+the level below)
+
+```clojure
+(defn print-cave
+  [cave]
+  (->> (for [y (range 0 10)
+             x (range 494 504)]
+         [x y])
+       (map #(get-in-cave cave %))
+       (partition 10)
+       (map #(apply str %))))
+```
+
+On our thest input the cave looks like we expect,
+
+```text
+(".........."
+ ".........."
+ ".........."
+ ".........."
+ "....#...##"
+ "....#...#."
+ "..###...#."
+ "........#."
+ "........#."
+ "#########.")
+ ```
+
+To solve part one we want to drop a gain of sand at a time and stop
+as soon as every grain of sand passes the bottom rock shelf and falls
+forever. There are probably smart ways to do it but simulating each
+grain of sand should work. To do that we need a couple of functions;
+the first one checks if the cave is 'empty' at a given position
+
+```clojure
+(defn position-empty?
+  [cave [x y]]
+  (condp = (get-in-cave cave [x y])
+    \# false
+    \o false
+    true))
+```
+
+and the other decides where a grain of sand will go next
+
+```clojure
+(defn next-position
+  [cave [x y]]
+  (->> [[x (inc y)]
+        [(dec x) (inc y)]
+        [(inc x) (inc y)]]
+       (filter #(position-empty? cave %))
+       first))
+```
+
+Now we need only to decide when to stop
+
+```clojure
+(defn falls-to-infinite
+  [cave [_ y]]
+  (> y (:cave-bottom cave)))
+```
+
+and we're ready to simulate the grains of sand motion: we follow a grain
+of sand that pops into existence at position `[500 0]` until it settles
+down and repeat until the above stop function returns true.
+
+```clojure
+(defn drop-sand-until
+  [cave stop-fn]
+  (loop [cave cave
+         grain-of-sand [500 0]]
+    (if-not (stop-fn cave grain-of-sand)
+      (if-let [[x y] (next-position cave grain-of-sand)]
+        (recur cave [x y])
+        (update cave :sand conj grain-of-sand))
+      (assoc cave :settled true))))
+```
+
+For part one we want to know how many grains of sand will settle down
+before the next one falls to infinity
+
+```clojure
+(defn part-1
+  [data]
+  (let [cave (parse-input data)]
+    (->> cave
+         (iterate #(drop-sand-until % falls-to-infinite))
+         (drop-while #(not (:settled %)))
+         first
+         :sand
+         count)))
+```
+
+For part two we are told that two levels below the bottom rock shelf
+there's a floor that extends infinitely on both sides and sand will
+continue pouring into the cave just until the position at `[500 0]`
+is occupied by the sand piling up. We can reuse almost all of the code
+for part one, we just need to update the `get-in-cave` function to take
+note of the floor and write a new function telling us when to stop
+
+```clojure
+(defn get-in-cave
+  [{:keys [sand rocks cave-bottom]} [x y]]
+  (let [rock-floor (+ 2 cave-bottom)]
+    (cond (sand [x y])     \o
+          (rocks [x y])    \#
+          (= y rock-floor) \#
+          :else            \.)))
+          
+(defn sand-fills-cave
+  [cave _]
+  ((:sand cave) [500 0]))
+```
+
+And part two is just
+
+```clojure
+(defn part-2
+  [data]
+  (let [cave (parse-input data)]
+    (->> cave
+         (iterate #(drop-sand-until % sand-fills-cave))
+         (drop-while #(not (:settled %)))
+         first
+         :sand
+         count)))
+```
 
 ---
 
@@ -1436,6 +1769,9 @@ Notes
 -----
 
 <sup>†</sup> many ideas for Day 11 were blatantly taken from [pbruyninckx][d11-pbruyninckx]'s code
+
+<sup>‡</sup> even more than Day 11 code for Day 13 is shamelessy copied
+from [pbruyninckx][d13-pbruyninckx]
 
 
 [top]: #advent-of-code-2022
@@ -1452,6 +1788,8 @@ Notes
 [d10]: #day-10---cathode-ray-tube
 [d11]: #day-11---monkey-in-the-middle
 [d12]: #day-12---hill-climbing-algorithm
+[d13]: #day-13---distress-signal
+[d14]: #day-14---regolith-reservoir
 [notes]: #notes
 
 
@@ -1467,6 +1805,8 @@ Notes
 [d10-clj]: https://github.com/agnul/AdventOfCode/blob/main/2022/clojure/day_10.clj
 [d11-clj]: https://github.com/agnul/AdventOfCode/blob/main/2022/clojure/day_11.clj
 [d12-clj]: https://github.com/agnul/AdventOfCode/blob/main/2022/clojure/day_12.clj
+[d13-clj]: https://github.com/agnul/AdventOfCode/blob/main/2022/clojure/day_13.clj
+[d14-clj]: https://github.com/agnul/AdventOfCode/blob/main/2022/clojure/day_14.clj
 
 
 [docs-slurp]: https://clojuredocs.org/clojure.core/slurp
@@ -1474,6 +1814,8 @@ Notes
 [docs-seq]: https://clojuredocs.org/clojure.core/seq
 [docs-set]: https://clojuredocs.org/clojure.core/set
 [docs-intersection]: https://clojuredocs.org/clojure.set/intersection
+[docs-range]: https://clojuredocs.org/clojure.core/range
 [d11-pbruyninckx]: https://github.com/pbruyninckx/aoc2022/blob/main/src/aoc/day11.clj
 [wiki-mod]: https://en.wikipedia.org/wiki/Modular_arithmetic
 [wiki-bfs]: https://en.wikipedia.org/wiki/Breadth-first_search
+[d13-pbruyninckx]: https://github.com/pbruyninckx/aoc2022/blob/main/src/aoc/day13.clj
