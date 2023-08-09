@@ -23,6 +23,7 @@ Table of contents
 - [Day 12 - Hill Climbing Algorithm][d12]
 - [Day 13 - Distress Signal][d13]<sup>‡</sup>
 - [Day 14 - Regolith Reservoir][d14]
+- [Day 15 - Beacon Exclusion Zone][d15]
 - [Notes][notes]
 
 
@@ -1732,8 +1733,9 @@ For part two we are told that two levels below the bottom rock shelf
 there's a floor that extends infinitely on both sides and sand will
 continue pouring into the cave just until the position at `[500 0]`
 is occupied by the sand piling up. We can reuse almost all of the code
-for part one, we just need to update the `get-in-cave` function to take
-note of the floor and write a new function telling us when to stop
+for part one, we just need to update the `get-in-cave` function to
+check for the cave's floor and write a new function telling us when
+to stop
 
 ```clojure
 (defn get-in-cave
@@ -1763,6 +1765,167 @@ And part two is just
          count)))
 ```
 
+Day 15 - Beacon Exclusion Zone
+------------------------------
+
+[Solution][d15-clj] - [Back to top][top]
+
+In day 15 we're searching for a beacon on a square area. The input gives
+us a list of sensors, each one of which knows it's own position and the
+position of the nearest beacon. Distances are calculated with the
+[Mahnattan's Distance][wiki-md].
+
+As usual we start parsing the input: for each sensor we want the position,
+the position of the nearest beacon ant it's distance (it will be useful
+later).
+
+```clojure
+(defn dist
+  [[a b] [c d]]
+  (+ (abs (- a c)) (abs (- b d))))
+
+(defn parse-line
+  [line]
+  (let [[posn nearest] 
+        (->> line
+             (re-seq #"-?\d+")
+             (map parse-long)
+             (partition 2))]
+    {:posn posn
+     :nearest nearest
+     :range (dist posn nearest)}))
+
+(defn parse-input
+  [data]
+  (->> data
+       str/split-lines
+       (map parse-line)))
+```
+
+Each sensor knows about its nearest beacon, so each sensor defines a
+diamond-shaped area that can't contain other beacons, the _radius_ of the
+area being the distance to the nearest beacon. For part one we want to
+know how many grid positions at a given `y` coord **can't** be occupied by
+a beacon. We do that by joining the slices of the sensor diamonds at
+a fixed `y` position (note that they may overlap), counting how many grid
+cells the joined slices cover and subtracting the number of actual
+beacons at the given `y` coordinate. Given a sensor `S` at grid (`Sx`,
+`Sy`) and its closest beacon `B` at distance `R` below
+
+```text
+.....................
+.....................
+..........t.......... t is (Sx, Sy - R)
+.........###.........
+........#####........
+.......#######.......
+......#########......
+.....###########.....
+....#############....
+...###############...
+..#################..
+.l########S########r. l is (Sx - R, Sy), r is (Sx + R, Sy)
+..#################..
+...###############...
+....B############....
+.....###########.....
+......#########......
+.......#######.......
+........#####........
+.........###.........
+..........b.......... b is (Sx, Sy + R)
+.....................
+.....................
+```
+
+the _slice_ at any given y is easy to find
+
+- if `y` is less than `Sy - R` or greather than `Sy + R` there's no slice
+- if `y` is between `Sy - R` and `Sy + R` then calling `dy` the absolute
+  value of `Sy - y`, the slice goes from `Sx - R + dy` to `Sx + R - dy`
+  because of how the Manhattan distance works.
+
+We can start defining a function that given a sensor and a `y` position
+calculates the slice of diamond on the `y` coordinate for that sensor,
+if any
+
+```clojure
+(defn exclude-at-y
+  [{:keys [posn range]} y]
+  (let [[sx sy] posn
+        dx (- range (abs (- y sy)))]
+    (when (>= dx 0)
+      [(- sx dx) (+ sx dx)])))
+```
+
+and applying it to every sensor
+
+```clojure
+(defn exclusions-at-y
+  [sensors y]
+  (->> sensors
+       (map #(exclude-at-y % y))
+       (filter identity)
+       (sort-by first)))
+```
+
+we get a list of slices sorted left to right. We can then merge the slices
+with
+
+```clojure
+(defn merge-ranges
+  [merged [c d :as r]]
+  (if-let [[a b] (first merged)]
+    (if (<= c b)
+      (conj (drop 1 merged) [(min a c) (max b d)])
+      (conj merged r))
+    (conj merged r)))
+```
+
+and count the grid cells covered with
+
+```clojure
+(defn count-range
+  [[a b]]
+  (+ (- b a) 1))
+
+(defn count-covered
+  [ranges]
+  (->> ranges
+       (reduce merge-ranges [])
+       (map count-range)
+       (apply +)))
+```
+
+To count the beacons at a given `y` positions add all the beacons to a
+set (multiple sensors can have the same nearest beacon and the set will
+take care of removing duplicates), filter by `y` position and count
+
+```clojure
+(defn count-beacons-at-y
+  [sensors y]
+  (->> sensors
+       (map :nearest)
+       (into #{})
+       (filter #(= (second %) y))
+       count))
+```
+
+With all that in place part 1 is solved with
+
+```clojure
+(defn part-1
+  [sensors y]
+  (let [ranges (exclusions-at-y sensors y)
+        covered (count-covered ranges)
+        beacons (count-beacons-at-y sensors y)]
+    (- covered beacons)))
+
+(part-1 (parse-input (slurp "../inputs/day_15_test.txt")) 10)
+(part-1 (parse-input (slurp "../inputs/day_15.txt")) 2000000)
+```
+
+
 ---
 
 Notes
@@ -1790,6 +1953,7 @@ from [pbruyninckx][d13-pbruyninckx]
 [d12]: #day-12---hill-climbing-algorithm
 [d13]: #day-13---distress-signal
 [d14]: #day-14---regolith-reservoir
+[d15]: #day-15---beacon-exclusion-zone
 [notes]: #notes
 
 
@@ -1807,6 +1971,7 @@ from [pbruyninckx][d13-pbruyninckx]
 [d12-clj]: https://github.com/agnul/AdventOfCode/blob/main/2022/clojure/day_12.clj
 [d13-clj]: https://github.com/agnul/AdventOfCode/blob/main/2022/clojure/day_13.clj
 [d14-clj]: https://github.com/agnul/AdventOfCode/blob/main/2022/clojure/day_14.clj
+[d15-clj]: https://github.com/agnul/AdventOfCode/blob/main/2022/clojure/day_15.clj
 
 
 [docs-slurp]: https://clojuredocs.org/clojure.core/slurp
@@ -1819,3 +1984,4 @@ from [pbruyninckx][d13-pbruyninckx]
 [wiki-mod]: https://en.wikipedia.org/wiki/Modular_arithmetic
 [wiki-bfs]: https://en.wikipedia.org/wiki/Breadth-first_search
 [d13-pbruyninckx]: https://github.com/pbruyninckx/aoc2022/blob/main/src/aoc/day13.clj
+[wiki-md]: https://en.wikipedia.org/wiki/Taxicab_geometry
