@@ -32,7 +32,7 @@ def part_1(data):
         last = re.search('\d', line[::-1]).group()
         sum += int(first) * 10 + int(last)
     return sum
-``` 
+```
 
 For part two we add a complication: the digits on each line can be spelled out.
 I think we can adapt the solution for part one...
@@ -138,10 +138,10 @@ the minimun number of cubes for each color for each game.
 ```python
 def power(game):
     min_r = min_g = min_b = 0
-    for rgb in game:
-        min_r = max(min_r, rgb['red'])
-        min_g = max(min_g, rgb['green'])
-        min_b = max(min_b, rgb['blue'])
+    for draft in game:
+        min_r = max(min_r, draft['red'])
+        min_g = max(min_g, draft['green'])
+        min_b = max(min_b, draft['blue'])
     return min_r * min_g * min_b
 
 def part_2(games):
@@ -152,9 +152,8 @@ def part_2(games):
 ---
 [top]: #advent-of-code-2023
 
-[d01]: #day-1---calorie-counting
-[d02]: #day-1---cube-conundrum
-
+[d01]: #day-1---trebuchet
+[d02]: #day-2---cube-conundrum
 
 [d01-py]: https://github.com/agnul/AdventOfCode/blob/main/2023/python/day_01.py
 [d02-py]: https://github.com/agnul/AdventOfCode/blob/main/2023/python/day_02.py

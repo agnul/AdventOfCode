@@ -4,8 +4,7 @@ from pathlib import Path
 
 def parse_draft(cube_pairs):
     draft = defaultdict(int)
-    for cnt_color in cube_pairs.split(','):
-        cnt, color = cnt_color.split()
+    for cnt, color in map(str.split, cube_pairs.split(',')):
         draft[color] = int(cnt)
 
     return draft
