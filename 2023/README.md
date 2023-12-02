@@ -7,10 +7,11 @@ Table of contents
 -----------------
 
 - [Day 1 - Trebuchet?!][d01]
+- [Day 2 - Cube Conundrum][d02]
 
 
 Day 1 - Trebuchet?!
-------------------------
+-------------------
 
 [Solution][d01-py] - [Back to top][top]
 
@@ -86,10 +87,74 @@ def part_2(data):
     return sum
 ```
 
+
+Day 2 - Cube Conundrum
+----------------------
+
+[Solution][d02-py] - [Back to top][top]
+
+We're given a list of games, each consisting of multiple drafts of colored cubes.
+In part one we want to know which games are possible with a limited number of
+cubes for each color. We start parsing the input into a dictionary of lists of
+cube drafts:
+
+```python
+def parse_draft(cube_pairs):
+    draft = defaultdict(int)
+    for cnt_color in cube_pairs.split(','):
+        cnt, color = cnt_color.split()
+        draft[color] = int(cnt)
+
+    return draft
+
+def parse_input(data):
+    games = {}
+    for line in data.rstrip().split('\n'):
+        (game_id, drafts) = line.split(':')
+        games[int(game_id[5:])] = [parse_draft(d) for d in drafts.split(';')]
+
+    return games
+```
+
+With 12 red, 13 green and 14 blue cubes available we are asked to find which of
+the listed games is possible. Each game is possible if all of its cube drafts are
+possible, and each draft is possible if it contains no more of the number of
+available cubes for each color. We can then solve part one:
+
+```python
+def draft_is_possible(draft):
+    return draft['red'] <= 12 and draft['green'] <= 13 and draft['blue'] <= 14
+
+def part_1(games):
+    game_is_possible = lambda gid: all(draft_is_possible(d) for d in games[gid])
+
+    return sum(filter(game_is_possible, games.keys()))
+```
+
+In part two we are asked to find how many cubes of each color are needed for all
+the games to be possible. The solution to part two is the sum of the products of
+the minimun number of cubes for each color for each game.
+
+```python
+def power(game):
+    min_r = min_g = min_b = 0
+    for rgb in game:
+        min_r = max(min_r, rgb['red'])
+        min_g = max(min_g, rgb['green'])
+        min_b = max(min_b, rgb['blue'])
+    return min_r * min_g * min_b
+
+def part_2(games):
+    return sum(power(game) for game in games.values())
+```
+
+
 ---
-[top]: #advent-of-code-2022
+[top]: #advent-of-code-2023
 
 [d01]: #day-1---calorie-counting
+[d02]: #day-1---cube-conundrum
 
 
 [d01-py]: https://github.com/agnul/AdventOfCode/blob/main/2023/python/day_01.py
+[d02-py]: https://github.com/agnul/AdventOfCode/blob/main/2023/python/day_02.py
