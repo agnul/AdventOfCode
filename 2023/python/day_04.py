@@ -17,19 +17,19 @@ def parse_input(data):
 
 
 def part_1(cards):
-    sum = 0
+    score = 0
     for c in cards:
-        winning = c['numbers'].intersection(c['winners'])
-        sum += 2 ** (len(winning) - 1) if winning else 0
-    return sum
+        winning = c['numbers'] & c['winners']
+        score += 2 ** (len(winning) - 1) if winning else 0
+    return score
 
 
 def part_2(cards):
     counts = [1] * len(cards)
     for i, c in enumerate(cards):
-        cards_won = len(c['numbers'].intersection(c['winners']))
-        for w in range(1, cards_won + 1):
-            counts[i + w] += counts[i]
+        cards_won = len(c['numbers'] & c['winners'])
+        for j in range(1, cards_won + 1):
+            counts[i + j] += counts[i]
     return sum(counts)
 
 
