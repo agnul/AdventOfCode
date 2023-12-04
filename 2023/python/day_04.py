@@ -34,8 +34,8 @@ def part_2(cards):
 
 
 if __name__ == '__main__':
-    test_data = parse_input(Path('../input/day_04_test.txt').read_text())
-    real_data = parse_input(Path('../input/day_04.txt').read_text())
+    test_data = parse_input(Path('../inputs/day_04_test.txt').read_text())
+    real_data = parse_input(Path('../inputs/day_04.txt').read_text())
 
     print(part_1(test_data))
     print(part_1(real_data))

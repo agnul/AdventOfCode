@@ -43,8 +43,8 @@ def part_2(games):
 
 
 if __name__ == '__main__':
-    test_data = parse_input(Path('../input/day_02_test.txt').read_text())
-    game_data = parse_input(Path('../input/day_02.txt').read_text())
+    test_data = parse_input(Path('../inputs/day_02_test.txt').read_text())
+    game_data = parse_input(Path('../inputs/day_02.txt').read_text())
     print(part_1(test_data))
     print(part_1(game_data))
     print(part_2(test_data))

@@ -50,6 +50,6 @@ def part_2(data):
 
 if __name__ == '__main__':
     print(part_1(TEST_INPUT))
-    print(part_1(Path('../input/day_01.txt').read_text()))
+    print(part_1(Path('../inputs/day_01.txt').read_text()))
     print(part_2(TEST_INPUT_2))
-    print(part_2(Path('../input/day_01.txt').read_text()))
+    print(part_2(Path('../inputs/day_01.txt').read_text()))
