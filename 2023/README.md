@@ -8,6 +8,8 @@ Table of contents
 
 - [Day 1 - Trebuchet?!][d01]
 - [Day 2 - Cube Conundrum][d02]
+- [Day 3 - Gear Ratios][d03]
+- [Day 4 - Scratchcards][d04]
 
 
 Day 1 - Trebuchet?!
@@ -148,12 +150,80 @@ def part_2(games):
     return sum(power(game) for game in games.values())
 ```
 
+Day 3 - Gear Ratios
+-------------------
+
+[Solution][d03-py] - [Back to top][top]
+
+Still working on this one
+
+
+Day 4 - Scratchcards
+--------------------
+
+[Solution][d04-py] - [Back to top][top]
+
+We're given a list of "scratchcards", each made of a card number, some numbers on
+the card, and some other numbers that we're told are the winning numbers. For each
+card we can compute a score based on how many of the winning numbers (on the right
+side of the `|`) sign appear on the card (the left side of the `|` sign). A single
+number scores one point, each one after that doubles the score.
+
+We can parse the input into a list of dicts, one for each card.
+
+```python
+def parse_input(data):
+    cards = []
+    for line in data.splitlines():
+        card, numbers, winners = re.split(r'[:|]', line)
+        cards.append({
+            'card': int(card[5:]),
+            'numbers': set(re.findall(r'\d+', numbers)),
+            'winners': set(re.findall(r'\d+', winners))
+        })
+    return cards
+```
+
+and with that we can easily solve parte one: if we add the numbers on both sides
+to two sets then the size of the set intersection of the two is the number `n` of
+winning numbers on the card. The score is simply `2` to the power of `n - 1` and the
+sum of the scores for each card is our solution
+
+```python
+def part_1(cards):
+    sum = 0
+    for c in cards:
+        winning = c['numbers'].intersection(c['winners'])
+        sum += 2 ** (len(winning) - 1) if winning else 0
+    return sum
+```
+
+For part two we're told the game works a little differently: if on card `c`
+we have `w` winning numbers then we get `1` new copy of cards `c+1`, `c+2`
+... `c+w`. We must of course be careful: if we have multiple copies of card
+`c` then we repeat the above as many times. We're asked to find with how many
+cards we end up after all the winning numbers on all the cards have been
+checked out.
+
+```python
+def part_2(cards):
+    counts = [1] * len(cards)
+    for i, c in enumerate(cards):
+        cards_won = len(c['numbers'].intersection(c['winners']))
+        for w in range(1, cards_won + 1):
+            counts[i + w] += counts[i]
+    return sum(counts)
+```
 
 ---
 [top]: #advent-of-code-2023
 
 [d01]: #day-1---trebuchet
 [d02]: #day-2---cube-conundrum
+[d03]: #day-3---gear-ratios
+[d04]: #day-4---scratchcards
 
 [d01-py]: https://github.com/agnul/AdventOfCode/blob/main/2023/python/day_01.py
 [d02-py]: https://github.com/agnul/AdventOfCode/blob/main/2023/python/day_02.py
+[d03-py]: https://github.com/agnul/AdventOfCode/blob/main/2023/python/day_03.py
+[d04-py]: https://github.com/agnul/AdventOfCode/blob/main/2023/python/day_04.py
