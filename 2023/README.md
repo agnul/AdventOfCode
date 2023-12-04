@@ -155,7 +155,56 @@ Day 3 - Gear Ratios
 
 [Solution][d03-py] - [Back to top][top]
 
-Still working on this one
+We're given a grid of _symbols_ and numbers, where a symbol is anything that's
+not a digit or a `.` character. For part one we want the sum of all the numbers
+in the grid that are touching a symbol either above, below, left, right or
+diagonally.
+
+We start looking for the numbers, and since I suspect symbols will be useful
+in part two we'll build a list of tuples mad up by a symbol and a list of the
+numbers connected to it.
+
+```python
+def parse(grid):
+    parts = []
+    for i, row in enumerate(grid):
+        for j, char in enumerate(row):
+            if not (char.isdigit() or char == '.'):
+                parts.append((char, find_part_numbers(grid, i, j)))
+    return parts
+```
+
+To find the numbers connected to the symbol at position `(r, c)` we can search
+rows `r-1`, `r` and `r+1` for numbers and check that the leftmost or rightmost
+digits are next to column `c`.
+
+```python
+def find_part_numbers(grid, row, col):
+    res = []
+    rows = len(grid)
+    for i in [max(0, row - 1), row, min(rows, row + 1)]:
+        for left, right in map(re.Match.span, re.finditer(r'\d+', grid[i])):
+            if left - 1 <= col <= right:
+                res.append(int(grid[i][left:right]))
+    return res
+```
+
+With all that in place part one is pretty simple
+
+```python
+def part_1(data):
+    return sum((sum(ns) for _, ns in data))
+```
+
+For part two we want only the _gear_ symbols, represented by the `*`
+character, and of those we only want the ones connected to exactly two
+numbers. Once we have them we want the sum of the products.
+
+```python
+def part_2(data):
+    gears = filter(lambda d: d[0] == '*' and len(d[1]) == 2, data)
+    return sum(a * b for _, [a, b] in gears)
+```
 
 
 Day 4 - Scratchcards
