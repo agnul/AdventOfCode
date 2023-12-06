@@ -10,6 +10,8 @@ Table of contents
 - [Day 2 - Cube Conundrum][d02]
 - [Day 3 - Gear Ratios][d03]
 - [Day 4 - Scratchcards][d04]
+- [Day 5 - If You Give A Seed A Fertilizer][d05]
+- [Day 6 - Wait For It][d06]
 
 
 Day 1 - Trebuchet?!
@@ -264,6 +266,101 @@ def part_2(cards):
     return sum(counts)
 ```
 
+[Day 5 - If You Give A Seed A Fertilizer]
+-----------------------------------------
+
+[Solution][d05-py] - [Back to top][top]
+
+Still waiting for the bruteforce of part-2 ;-)
+
+
+[Day 6 - Wait For It]
+---------------------
+
+[Solution][d06-py] - [Back to top][top]
+
+We're racing micro-boats! Each race lasts a fixed amount of milliseconds (the
+first line in the input). Each boat is charged by waiting a certain number
+of milliseconds and then runs for the remaining time in the race at a speed
+equal to the time spent charging. We want to know in how many ways we can beat
+the race distance record, i.e. charge the boat long enough. We can do it the
+obvious way, simulating each race: the distance run after charging for `j`
+millis in a race lasting `time` millis is just `j * (time - j)`, and terating
+over all times and distances we can solve part one:
+
+```python
+def solve(data):
+    times, distances = data.splitlines()
+    times = [int(n) for n in re.findall(r'\d+', times)]
+    distances = [int(n) for n in re.findall(r'\d+', distances)]
+
+    res = 1
+    for time, distance in zip(times, distances):
+        winning = partial(lambda d, r: r > d, distance)
+        run = partial(lambda t, j: j * (t - j), time)
+
+        races = [run(j) for j in range(time + 1)]
+        winners = list(filter(winning, races))
+
+        res *= len(winners)
+
+    return res
+
+def part_1(data):
+    return solve(data)
+```
+
+For part two we're told that what we thought were multiple times and distances
+are in fact a single race, obtained removing all spaces between the numbers. The
+solution for part one still works... _if slowly_.
+
+```python
+def part_2(data):
+    return solve(data.replace(' ', ''))
+```
+
+There is a smarter way involving math ;-)
+
+The distance covered by running for $x$ millis in a race $t$ millis long is
+
+$$d = x(t - x)$$
+
+We want all the values for $x$ for which
+
+$$x(t - x) \geq d$$
+
+or put another way
+
+$$-x^2 + tx - d \geq 0$$
+
+Using the formula from school we find
+
+$$x_{min}=\frac{-t + \sqrt{t^2 -4d}}{-2}$$
+
+$$x_{max}=\frac{-t - \sqrt{t^2 -4d}}{-2}$$
+
+and the race is won for values
+
+$$x_{min} \leq x \leq x_{max}$$
+
+Translating all that in code (and adjusting for integers) we get
+
+```python
+def solve_fast(data):
+    times, distances = data.splitlines()
+    times = [int(n) for n in re.findall(r'\d+', times)]
+    distances = [int(n) for n in re.findall(r'\d+', distances)]
+
+    res = 1
+    for time, distance in zip(times, distances):
+
+        delta = sqrt(time**2 - 4*distance)
+        x_min, x_max = (time - delta) / 2, (time + delta) / 2
+        res *= (ceil(x_max) - floor(x_min) - 1)
+
+    return res
+```
+
 ---
 [top]: #advent-of-code-2023
 
@@ -271,8 +368,12 @@ def part_2(cards):
 [d02]: #day-2---cube-conundrum
 [d03]: #day-3---gear-ratios
 [d04]: #day-4---scratchcards
+[d05]: #day-5---if-you-give-a-seed-a-fertilizer
+[d06]: #day-6---wait-for-it
 
 [d01-py]: https://github.com/agnul/AdventOfCode/blob/main/2023/python/day_01.py
 [d02-py]: https://github.com/agnul/AdventOfCode/blob/main/2023/python/day_02.py
 [d03-py]: https://github.com/agnul/AdventOfCode/blob/main/2023/python/day_03.py
 [d04-py]: https://github.com/agnul/AdventOfCode/blob/main/2023/python/day_04.py
+[d05-py]: https://github.com/agnul/AdventOfCode/blob/main/2023/python/day_05.py
+[d06-py]: https://github.com/agnul/AdventOfCode/blob/main/2023/python/day_06.py
