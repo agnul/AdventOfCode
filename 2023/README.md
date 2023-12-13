@@ -10,8 +10,10 @@ Table of contents
 - [Day 2 - Cube Conundrum][d02]
 - [Day 3 - Gear Ratios][d03]
 - [Day 4 - Scratchcards][d04]
-- [Day 5 - If You Give A Seed A Fertilizer][d05]
+- [Day 5 - If You Give A Seed A Fertilizer][d05]<sup>†</sup>
 - [Day 6 - Wait For It][d06]
+- [Day 7 - Camel Cards][d07]
+- [Notes][notes]
 
 
 Day 1 - Trebuchet?!
@@ -271,7 +273,130 @@ def part_2(cards):
 
 [Solution][d05-py] - [Back to top][top]
 
-Still waiting for the bruteforce of part-2 ;-)
+Today we're moving some _seed_ positions through a series of translations
+to a final _soil_ position. Our input is made of a list of initial positions
+and a series of translations of the form `(dst, src, count)` meaning that
+each numbers between `src` and `src + count` has to be translated to a new
+position between `dst` and `dst + count`. We can start by parsing the input:
+
+```python
+def parse_block(block):
+    parse_line = lambda l: map(int, re.findall(r'\d+', l))
+
+    return [tuple(t) for t in map(parse_line, block.splitlines()[1:])]
+
+def parse_input(lines):
+    blocks = lines.split('\n\n')
+    seeds = list(map(int, re.findall(r'\d+', blocks[0])))
+
+    return seeds, [parse_block(b) for b in blocks[1:]]
+```
+
+which will return the initial _seed_ positions and a list of lists of
+tuples representing the transformations.
+
+Part 1 is simple enough: go through each seed and try to apply each
+transformation in sequence. Our answer is the minimum of the new
+positions once all possible translations are applied.
+
+```python
+def translate(seed, trans):
+    for dst, src, size in trans:
+        if src <= seed < src + size:
+            return dst + seed - src
+    return seed
+
+def part_1(seeds, translations):
+    soils = []
+    for seed in seeds:
+        for trans in translations:
+            seed = translate(seed, trans)
+        soils.append(seed)
+    return min(soils)
+```
+
+In part 2 we're told that the _seeds_ on the first line of the input are no
+longer individual seeds but taken in pairs they make up a list of seed
+intervals of the form `(start, count)` and we're to apply the same
+translations as before to these. One could reuse the code for part 1 and
+brute-force the solution enumerating all of the seeds in the intervals but
+a quick check shows that could take some time... a smarter solution is
+required. Taking a look at the data shows that the seed_intervals and the
+translation ranges don't overlap perfectly so we can't translate just the
+seed_interval extremes, but we should apply each translation only to the
+overlapping parts and leave the non-overlapping parts for processing by
+later translations. We face four possible cases:
+
+Non overlapping intervals:
+
+```text
+
+   S---seeds---T        A---trans---B
+```
+
+Overlapping intervals:
+
+```text
+    A---trans---B               A---trans---B
+          S---seeds---T     S---seeds---T
+```
+
+Fully contained intervals:
+
+```text
+            S---seeds---T
+         A-------trans-------B
+```
+
+We can apply the translation to the overlapping parts, leaving like this:
+
+```python
+def translate_pt2(seed_intervals, translations):
+    done = []
+    while seed_intervals:
+        start, count = seed_intervals.pop()
+        for dst, src, size in translations:
+            left = max(start, src)
+            right = min(start + count, src + size)
+            if left < right:
+                done.append((left + (dst - src), right - left))
+                if left > start:
+                    seed_intervals.append((start, left - start))
+                if start + count > right:
+                    seed_intervals.append((right, start + count - right))
+                break
+        else:
+            done.append((start, count))
+    return done
+```
+
+where `left` and `right` delimit the overlapping part, `start` and `count`
+represent a seed interval and the `(dst, src, size)` tuples represent a
+translation. The function above will return a modified version of the
+seed intervals containing the parts that have successfully been translated
+and the parts that did not overlap with any translation. For part 2 we then
+just need to create the seed intervals and apply the above to every block
+of translations in the input
+
+```python
+def part_2(seeds, translation_blocks):
+    seed_intervals = [(seeds[i], seeds[i+1]) for i in range(0, len(seeds), 2)]
+
+    for block in translation_blocks:
+        seed_intervals = translate_pt2(seed_intervals, block)
+    return min(seed_intervals)[0]
+```
+
+The same could be applied for part 1 if we consider each seed an interval
+of length 1:
+
+```python
+def part_1b(seeds, translations):
+    seed_intervals = [(s, s+1) for s in seeds]
+    for trans in translations:
+        seed_intervals = translate_pt2(seed_intervals, trans)
+    return min(seed_intervals)[0]
+```
 
 
 [Day 6 - Wait For It]
@@ -361,6 +486,112 @@ def solve_fast(data):
     return res
 ```
 
+
+Day 7 - Camel Cards
+-------------------
+
+In day 7 we're playing a simplified game of poker. We're given a list of hands
+and bids, and we're asked to sort them by their _rank_ and then sum the product
+of each hand's position by the associated bid. Sorting should be easy: the one
+with the most cards of the same type wins (five of a kind, four of a kind, full
+house... you get the idea), and hands of the same type are ranked by the
+highest card from left to right. Cards are (low to high), 2, 3, 4 ... 9, T,
+J, Q, K and A. Parsing the input is just a matter of calling `splitlines()`.
+As for sorting we could turn each hand in a suitable string and sort the
+results lexicografically. To count the number of equal cards Python's
+`Counter` is useful. Doing something like
+
+```python
+''.join(map(str, sorted(Counter(hand).values(), reverse=True)))
+```
+
+will result in `5` for five-of-a-kind hands, `41` for four-of-a-kind,
+`32` for full-house and so on and sorting those lexicographically
+has the weakest hands first and the strongest hands last
+
+```text
+11111 - highest card
+2111  - one par
+221   - two pairs
+311   - three of a kind
+32    - full house
+41    - four of a kind
+5     - five of a kind
+```
+
+To sort hands of the same strenght we can't use the cards value because
+we want `T` before `J`, `Q` before `K` and `A` last, so using the card
+values won't work. But we could just translate them into different letters
+like, for example
+
+```text
+23......A
+vv......v
+AB......M
+```
+
+and the resulting strings would be ordered the way we need. Putting it
+all together...
+
+```python
+def hand_type(hand_and_bid):
+    return ''.join(map(str, sorted(Counter(hand_and_bid[:5]).values(), reverse=True)))
+
+def hand_strength(hand, hand_type_fn, face_values):
+    return hand_type_fn(hand) + ''.join(face_values[c] for c in hand)
+
+def solve(data, card_strength, face_values):
+    key_fn = lambda line: hand_strength(line[:5], card_strength, face_values)
+    winnings = 0
+    for i, line in enumerate(sorted(data, key=key_fn), start=1):
+        winnings += i * int(line[6:])
+    return winnings
+
+def part_1(data):
+    face_values = dict(zip('23456789TJQKA', 'ABCDEFGHIJKLM'))
+    return solve(data, hand_type, face_values)
+
+```
+
+Maybe putting the two sorting keys into a tuple instead of sticking thenm
+together in a single string would have been nicer, but this way works too.
+
+Part 2 adds Jokers. `J` cards can now take the value of each other card
+when ranking hand types, but are lower than `2` when considering face value.
+The same trick as before works, once we figure out what to do with jokers.
+The winning strategy is to turn all of the jokers into the most common one:
+if you have a pair and two jokers you could turn your hand into two pairs,
+three of a kind, a full-house... but the obvious choice is the four of a kind
+hand.
+
+```python
+def hand_type_with_jokers(hand_and_bid):
+    hand = hand_and_bid[:5].replace('J', '')
+    jokers = 5 - len(hand)
+    counts = sorted(Counter(hand).values(), reverse=True)
+    if jokers < 5:
+        counts[0] += jokers
+    else:
+        counts = [5]
+    return ''.join(map(str, counts))
+```
+
+With that, and adjusting for the `J` card to sort before `2` part 2 is
+
+```python
+def part_2(data):
+    face_values = dict(zip('J23456789TQKA', 'ABCDEFGHIJKLM'))
+    return solve(data, hand_type_with_jokers, face_values)
+```
+
+
+
+Notes
+-----
+
+<sup>†</sup> The solution for part 2 is _heavily_ inspired by [HyperNeutrino].
+
+
 ---
 [top]: #advent-of-code-2023
 
@@ -370,6 +601,8 @@ def solve_fast(data):
 [d04]: #day-4---scratchcards
 [d05]: #day-5---if-you-give-a-seed-a-fertilizer
 [d06]: #day-6---wait-for-it
+[d07]: #day-7---camel-cards
+[notes]: #notes
 
 [d01-py]: https://github.com/agnul/AdventOfCode/blob/main/2023/python/day_01.py
 [d02-py]: https://github.com/agnul/AdventOfCode/blob/main/2023/python/day_02.py
@@ -377,3 +610,6 @@ def solve_fast(data):
 [d04-py]: https://github.com/agnul/AdventOfCode/blob/main/2023/python/day_04.py
 [d05-py]: https://github.com/agnul/AdventOfCode/blob/main/2023/python/day_05.py
 [d06-py]: https://github.com/agnul/AdventOfCode/blob/main/2023/python/day_06.py
+[d07-py]: https://github.com/agnul/AdventOfCode/blob/main/2023/python/day_07.py
+
+[HyperNeutrino]: https://www.youtube.com/playlist?list=PLnNm9syGLD3zLoIGWeHfnEekEKxPKLivw
