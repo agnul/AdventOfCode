@@ -758,7 +758,7 @@ Notes
 [d06]: #day-6---wait-for-it
 [d07]: #day-7---camel-cards
 [d08]: #day-8---haunted-wasteland
-[d09]: #day-8---mirange-maintenance
+[d09]: #day-9---mirage-maintenance
 [notes]: #notes
 
 [d01-py]: https://github.com/agnul/AdventOfCode/blob/main/2023/python/day_01.py
