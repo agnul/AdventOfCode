@@ -14,6 +14,7 @@ Table of contents
 - [Day 6 - Wait For It][d06]
 - [Day 7 - Camel Cards][d07]
 - [Day 8 - Haunted Wasteland][d08]
+- [Day 9 - Mirage Maintenance][d09]
 - [Notes][notes]
 
 
@@ -660,6 +661,86 @@ def part_2(directions, maps):
 That worked ;-)
 
 
+Day 9 - Mirage Maintenance
+--------------------------
+
+[Solution][d09-py] - [Back to top][top]
+
+In day 9 we're given lists of numbers. For each list we are told to reduce
+the numbers calculating the pairwise differences until we get all zeroes.
+Once there we're told we can deduce the next number for each of the initial
+lists proceding backwards from the zeroes. Given the steps
+
+```text
+0   3   6   9  12  15
+  3   3   3   3   3
+    0   0   0   0
+```
+
+we're told if we were to add one more `0` to the right of the last line
+then we'd have to add a number `n` to the line above so that `n - 3` equals
+`0`, and so on for every line until the first one. In the example above we
+would add `3` (because `3 - 3 = 0`) and 18 (because `18 - 15 = 3`).
+
+For part 1 we must repeat the above and sum the numbers we would add to the
+original list. If you look at it closely it's obvious that the number we're
+looking for it's the sum of the last number on each line (in the above
+example `0`, `3` and `15`). We start with a function to calculate the
+pairwise differences
+
+```python
+def differences(line):
+    nums = line
+    deltas = [line]
+    while any(nums):
+        nums = [b - a for a, b in zip(nums, nums[1:])]
+        deltas.append(nums)
+    return deltas
+```
+
+then we can derive the last number on each line with
+
+```python
+def derive_last(line):
+    return sum(d[-1] for d in differences(line)[::-1])
+```
+
+and finally solve part one like
+
+```python
+def part_1(lines):
+    return sum(derive_last(line) for line in lines)
+```
+
+Part 2 asks to derive in much the same way the number we should add
+at the beginning of each line. Given the example
+
+```text
+*5*  10  13  16  21  30  45
+  *5*   3   3   5   9  15
+   *-2*   0   2   4   6
+      *2*   2   2   2
+        *0*   0   0
+```
+
+we can see that we should start by adding `n` so that `2 - n` equals `0`,
+then another `m` so that `0 - m` equals `2` and so on. Trying the examples
+it looks like each new number is the sum of the previous ones multiplied by
+`-1` and added to the first existing number on the same line, so let's try
+that:
+
+```python
+def derive_first(line):
+    deltas = [d[0] for d in differences(line)]
+    return reduce(lambda acc, d: -1 * acc + d, deltas[::-1])
+
+def part_2(lines):
+    return sum(derive_first(line) for line in lines)
+```
+
+That worked again ;-)
+
+
 Notes
 -----
 
@@ -677,6 +758,7 @@ Notes
 [d06]: #day-6---wait-for-it
 [d07]: #day-7---camel-cards
 [d08]: #day-8---haunted-wasteland
+[d09]: #day-8---mirange-maintenance
 [notes]: #notes
 
 [d01-py]: https://github.com/agnul/AdventOfCode/blob/main/2023/python/day_01.py
@@ -687,6 +769,7 @@ Notes
 [d06-py]: https://github.com/agnul/AdventOfCode/blob/main/2023/python/day_06.py
 [d07-py]: https://github.com/agnul/AdventOfCode/blob/main/2023/python/day_07.py
 [d08-py]: https://github.com/agnul/AdventOfCode/blob/main/2023/python/day_08.py
+[d09-py]: https://github.com/agnul/AdventOfCode/blob/main/2023/python/day_09.py
 
 [HyperNeutrino]: https://www.youtube.com/playlist?list=PLnNm9syGLD3zLoIGWeHfnEekEKxPKLivw
 [wiki-lcm]: https://en.wikipedia.org/wiki/Least_common_multiple
