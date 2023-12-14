@@ -13,6 +13,7 @@ Table of contents
 - [Day 5 - If You Give A Seed A Fertilizer][d05]<sup>†</sup>
 - [Day 6 - Wait For It][d06]
 - [Day 7 - Camel Cards][d07]
+- [Day 8 - Haunted Wasteland][d08]
 - [Notes][notes]
 
 
@@ -490,6 +491,9 @@ def solve_fast(data):
 Day 7 - Camel Cards
 -------------------
 
+[Solution][d07-py] - [Back to top][top]
+
+
 In day 7 we're playing a simplified game of poker. We're given a list of hands
 and bids, and we're asked to sort them by their _rank_ and then sum the product
 of each hand's position by the associated bid. Sorting should be easy: the one
@@ -585,6 +589,76 @@ def part_2(data):
 ```
 
 
+[Day 8 - Haunted Wasteland]
+---------------------------
+
+[Solution][d08-py] - [Back to top][top]
+
+In day 8 we're kina traversing a map: we have a list of directions to be
+applied cyclically and a map saying if you are at `AAA` you can go left to
+`BBB` or right to `CCC`. The first part asks how many steps it takes to
+go from `AAA` to `ZZZ`.
+
+There's not much parsing involved:
+
+```python
+def parse_input(data):
+    directions, maps = data.split("\n\n")
+    network  = {}
+    for m in maps.splitlines():
+        key, left, right = re.match(r'^(.*) = \((.*), (.*)\)$', m).groups()
+        network[key] = (left, right)
+    return directions, network
+```
+
+this will return a string of directions and a dictionary of `(left, right)`
+tuples.
+
+Part 1 is just a matter of repeatedly cycling over the directions (using
+`itertools.cycle`) until we reach the `ZZZ` position:
+
+```python
+def walk(directions, maps):
+    pos = 'AAA'
+    for steps, dir in enumerate(cycle(directions)):
+        if pos == 'ZZZ':
+            break
+        pos = maps[pos][0 if dir == 'L' else 1]
+    return steps
+
+def part_1(directions, maps):
+    return walk(directions, maps)
+```
+
+Part 2 is obviously some million times more complex so the same brute force
+approach won't work: we're to start simultaneously at each position ending
+in `A` and stop when all the positions end in `Z`. It all could go terribly
+wrong but what if each path was independent of the others and we could just
+find those and try their [lcm][wiki-lcm]?
+
+```python
+def lcm(a, b):
+    return a * b // math.gcd(a, b)
+
+def walk_n(directions, maps):
+    posns = [m for m in maps if m.endswith('A')]
+    steps = [0] * len(posns)
+    for dir in cycle(directions):
+        if all(p.endswith('Z') for p in posns):
+            break;
+        for j, pos in enumerate(posns):
+            if pos.endswith('Z'):
+                continue
+            posns[j] = maps[pos][0 if dir == 'L' else 1]
+            steps[j] += 1
+    return reduce(lcm, steps, 1)
+
+def part_2(directions, maps):
+    return walk_n(directions, maps)
+```
+
+That worked ;-)
+
 
 Notes
 -----
@@ -602,6 +676,7 @@ Notes
 [d05]: #day-5---if-you-give-a-seed-a-fertilizer
 [d06]: #day-6---wait-for-it
 [d07]: #day-7---camel-cards
+[d08]: #day-8---haunted-wasteland
 [notes]: #notes
 
 [d01-py]: https://github.com/agnul/AdventOfCode/blob/main/2023/python/day_01.py
@@ -611,5 +686,7 @@ Notes
 [d05-py]: https://github.com/agnul/AdventOfCode/blob/main/2023/python/day_05.py
 [d06-py]: https://github.com/agnul/AdventOfCode/blob/main/2023/python/day_06.py
 [d07-py]: https://github.com/agnul/AdventOfCode/blob/main/2023/python/day_07.py
+[d08-py]: https://github.com/agnul/AdventOfCode/blob/main/2023/python/day_08.py
 
 [HyperNeutrino]: https://www.youtube.com/playlist?list=PLnNm9syGLD3zLoIGWeHfnEekEKxPKLivw
+[wiki-lcm]: https://en.wikipedia.org/wiki/Least_common_multiple
