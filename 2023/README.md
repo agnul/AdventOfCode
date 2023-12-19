@@ -15,6 +15,7 @@ Table of contents
 - [Day 7 - Camel Cards][d07]
 - [Day 8 - Haunted Wasteland][d08]
 - [Day 9 - Mirage Maintenance][d09]
+- [Day 10 - Pipe Maze][d10]
 - [Notes][notes]
 
 
@@ -724,7 +725,7 @@ at the beginning of each line. Given the example
 ```
 
 we can see that we should start by adding `n` so that `2 - n` equals `0`,
-then another `m` so that `0 - m` equals `2` and so on. Trying the examples
+then another `m` so that `0 - m` equals `-2` and so on. Trying the examples
 it looks like each new number is the sum of the previous ones multiplied by
 `-1` and added to the first existing number on the same line, so let's try
 that:
@@ -739,6 +740,116 @@ def part_2(lines):
 ```
 
 That worked again ;-)
+
+
+Day 10 - Pipe Maze
+------------------
+
+[Solution][d10-py] - [Back to top][top]
+
+In day 10 we are playing with mazes. We're given a grid of characters that
+contains a loop made of the character `S|-LJ7F` and we want to find the
+farthest point from the loop's start `S`, which of course is at mid loop.
+Each of the above symbols connects at most two grid positions, for example
+`|` can connect the cell below and the cell above, `L` connects only to the
+cell above and the cell to its right. The `S` symbol is the only one that
+can connect any two of the four neighbourin cells. We can start by mapping
+what connects to what and writing a function that finds the possible exits
+from a given grid position (North is one grid row above, West is one grid
+column to the left):
+
+```python
+PIPE_EXITS = {
+    'S': [(-1, 0), (1, 0), (0, -1), (0, 1)],
+    '|': [(-1, 0), (1, 0)],
+    '-': [(0, -1), (0, 1)],
+    'L': [(-1, 0), (0, 1)],
+    'J': [(-1, 0), (0, -1)],
+    '7': [(1, 0), (0, -1)],
+    'F': [(1, 0), (0, 1)]
+}
+
+def pipe_exits(grid, r, c):
+    cur = grid[r][c]
+    for dr, dc in PIPE_EXITS[cur]:
+        xr = r + dr
+        xc = c + dc
+        if xr and 0 <= xc < len(grid[0]) and grid[xr][xc] in 'S|-LJ7F':
+            yield xr, xc
+```
+
+Since we want the farthest point from the start of the loop we must first
+find the loop: that can be done with a [Breadth First Search][wiki-bfs] or,
+since each pipe only connects two grid cells, by following the pipes until
+we're back to the start, making sure we exit each pipe from the opposite
+end to the one we entered (that's the second-last cell in the loop or the
+starting cell if the loop is shorter than two cells)
+
+```python
+def find_entry(grid):
+    for r, row in enumerate(grid):
+        for c, char in enumerate(row):
+            if char == 'S':
+                return r, c
+    return None
+
+def find_loop(grid):
+    start_r, start_c = find_entry(grid)
+
+    loop = [(start_r, start_c)]
+
+    closed_loop = False
+    while not closed_loop:
+        cur_r, cur_c = loop[-1]
+        for r, c in pipe_exits(grid, cur_r, cur_c):
+            if len(loop) < 2:
+                loop.append((r, c))
+                break
+            elif loop[-2] != (r, c):
+                loop.append((r, c))
+                break
+        closed_loop = (loop[-1] == (start_r, start_c))
+    return loop
+```
+
+With that done part 1 is simply
+
+```python
+def part_1(grid):
+    return len(find_loop(grid)) // 2
+```
+
+Part two wants us to find how many grid cells are fully enclosed by the maze,
+that is are _inside_ the polygon formed by the pipes. I've got no idea how to
+do that, but the internet has shown at least two ways ;-). [HyperNeutrino]
+has done it by counting how many pipes a straight line originating at each
+point on the grid would cross on the way to the grid border: for the points
+inside the polygon that has to be an odd number... but then someone in the
+comments pointed out that it could also be done applying something called
+[Pick's Theorem][wiki-picks]. That one says that if we have a polygon on a
+grid of integer coordinates its area is the numnber `i` of points inside the
+polygon plus half the number `b` of the vertexes making up it's border minus
+one
+
+$$A = i \times \frac{b}{2} - 1$$
+
+Now if we had another way to calculate the area... the same someone pointed
+to the [Shoelace Formula][wiki-shoelace]: the area of a polygon with vertexes
+at integer coordinates is a simple series of sums and multiplications.
+Combining the two part two is simply
+
+```python
+def part_2(grid):
+    loop = find_loop(grid)
+    vertexes = len(loop)
+
+    area = 0
+    for (x1, y1), (x2, y2) in zip(loop, loop[1:]):
+        area += x1 * y2 - y1 * x2
+
+    area = abs(area) // 2
+    return area + 1 - vertexes // 2
+```
 
 
 Notes
@@ -759,6 +870,7 @@ Notes
 [d07]: #day-7---camel-cards
 [d08]: #day-8---haunted-wasteland
 [d09]: #day-9---mirage-maintenance
+[d10]: #day-10---pipe-maze
 [notes]: #notes
 
 [d01-py]: https://github.com/agnul/AdventOfCode/blob/main/2023/python/day_01.py
@@ -770,6 +882,10 @@ Notes
 [d07-py]: https://github.com/agnul/AdventOfCode/blob/main/2023/python/day_07.py
 [d08-py]: https://github.com/agnul/AdventOfCode/blob/main/2023/python/day_08.py
 [d09-py]: https://github.com/agnul/AdventOfCode/blob/main/2023/python/day_09.py
+[d10-py]: https://github.com/agnul/AdventOfCode/blob/main/2023/python/day_10.py
 
 [HyperNeutrino]: https://www.youtube.com/playlist?list=PLnNm9syGLD3zLoIGWeHfnEekEKxPKLivw
 [wiki-lcm]: https://en.wikipedia.org/wiki/Least_common_multiple
+[wiki-bfs]: https://en.wikipedia.org/wiki/Breadth-first_search
+[wiki-picks]: https://en.wikipedia.org/wiki/Pick's_theorem
+[wiki-shoelace]: https://en.wikipedia.org/wiki/Shoelace_formula

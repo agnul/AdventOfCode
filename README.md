@@ -1,4 +1,5 @@
-# AdventOfCode
+AdventOfCode
+============
 
 Solutions to the Advent of Code problems.
 
@@ -8,7 +9,9 @@ Table of contents
 -----------------
 
 - [Advent of Code 2022][aoc-22]
+- [Advent of Code 2023][aoc-23]
 
 --
 
 [aoc-22]: https://github.com/agnul/AdventOfCode/tree/main/2022/README.md
+[aoc-23]: https://github.com/agnul/AdventOfCode/tree/main/2023/README.md
