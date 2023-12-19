@@ -16,6 +16,7 @@ Table of contents
 - [Day 8 - Haunted Wasteland][d08]
 - [Day 9 - Mirage Maintenance][d09]
 - [Day 10 - Pipe Maze][d10]
+- [Day 11 - Cosmic Expansion][d11]
 - [Notes][notes]
 
 
@@ -851,6 +852,46 @@ def part_2(grid):
     return area + 1 - vertexes // 2
 ```
 
+Day 11 - Cosmic Expansion
+-------------------------
+
+[Solution][d11-py] - [Back to top][top]
+
+In day 11 we've got ourselves a universe made of galaxies (`#`) and empty
+space `.`. Part one want's us to find the sum of the pairwise distances
+between the galaxies, with the caveat that the universe is expanding: every
+row and column in the grid that are made entirely of empty space doubles its
+size. The distance between galaxies is the usual
+[Manhattan's distance][wiki-taxicab]. There's no parsing involved, we'll
+just `splitlines()` on the input. As for the rest of the code... we could
+just simulate the universe and then calculate the galaxies' distances but I
+suspect things could get out of hand with expansion. Why not just count the
+rows and columns between pairs of galaxies taking into account expansion?
+Count each row/column as `1` if a galaxy is found on the same row/colum, `2`
+if it's empty.
+
+```python
+def solve(universe, expansion):
+    empty_rows = [r for r, row in enumerate(universe) if all(ch == '.' for ch in row)]
+    empty_cols = [c for c, col in enumerate(zip(*universe)) if all(ch == '.' for ch in col)]
+    galaxies = [(r, c) for r, row in enumerate(universe) for c, ch in enumerate(row) if ch == '#']
+
+    total = 0
+    for (r1, c1), (r2, c2) in combinations(galaxies, 2):
+        for r in range(min(r1, r2), max(r1, r2)):
+            total += expansion if r in empty_rows else 1
+        for c in range(min(c1, c2), max(c1, c2)):
+            total += expansion if c in empty_cols else 1
+
+    return total
+```
+
+The code is suspiciously similar to [someone else's][HyperNeutrino], with the
+exception of using `itertools.combinations` for the galaxy pairs. The trick
+of `zip`ping the rows and iterating over that to find the columns is neat,
+but not as neat of [Clojure's transpose trick][so-clj-transpose] ;-)
+
+Part one is `solve(universe, 2)` and Part two is `solve(universe, 1000000)`.
 
 Notes
 -----
@@ -871,6 +912,7 @@ Notes
 [d08]: #day-8---haunted-wasteland
 [d09]: #day-9---mirage-maintenance
 [d10]: #day-10---pipe-maze
+[d11]: #day-11---cosmic-expansion
 [notes]: #notes
 
 [d01-py]: https://github.com/agnul/AdventOfCode/blob/main/2023/python/day_01.py
@@ -883,9 +925,12 @@ Notes
 [d08-py]: https://github.com/agnul/AdventOfCode/blob/main/2023/python/day_08.py
 [d09-py]: https://github.com/agnul/AdventOfCode/blob/main/2023/python/day_09.py
 [d10-py]: https://github.com/agnul/AdventOfCode/blob/main/2023/python/day_10.py
+[d11-py]: https://github.com/agnul/AdventOfCode/blob/main/2023/python/day_11.py
 
 [HyperNeutrino]: https://www.youtube.com/playlist?list=PLnNm9syGLD3zLoIGWeHfnEekEKxPKLivw
 [wiki-lcm]: https://en.wikipedia.org/wiki/Least_common_multiple
 [wiki-bfs]: https://en.wikipedia.org/wiki/Breadth-first_search
 [wiki-picks]: https://en.wikipedia.org/wiki/Pick's_theorem
 [wiki-shoelace]: https://en.wikipedia.org/wiki/Shoelace_formula
+[wiki-taxicab]: https://en.wikipedia.org/wiki/Taxicab_geometry
+[so-clj-transpose]: https://stackoverflow.com/a/10347404/6069
