@@ -17,6 +17,7 @@ Table of contents
 - [Day 9 - Mirage Maintenance][d09]
 - [Day 10 - Pipe Maze][d10]
 - [Day 11 - Cosmic Expansion][d11]
+- [Day 12 - Hot Springs][d12]
 - [Notes][notes]
 
 
@@ -893,6 +894,96 @@ but not as neat of [Clojure's transpose trick][so-clj-transpose] ;-)
 
 Part one is `solve(universe, 2)` and Part two is `solve(universe, 1000000)`.
 
+Day 12 - Hot Springs
+--------------------
+
+[Solution][d12-py] - [Back to top][top]
+
+In day 12 we're trying to tell broken springs from good ones. Each line of
+the input can be split in two parts: on the left each char represents one
+spring, with `.` being a good one, `#` a damaged one and `?` meaning we don't
+know. On the right we have some numbers, each one representing the length of
+a contiguous block of damaged springs. With this information we can figure
+out which of the `?` chars stand for good and bad springs and how many
+possible configurations would match the right-hand side.
+
+Parsing the input is trivial:
+
+```python
+def parse_input(data):
+    parsed = []
+    for line in data.splitlines():
+        springs, groups = line.split()
+        groups = tuple(map(int, groups.split(',')))
+        parsed.append((springs, groups))
+    return parsed
+```
+
+The problem can be solved by examining smaller configurations and building
+up from them. The simplest cases are
+
+- we've examined all the springs: the configuration is valid if there are
+  no spring groups left to match
+- we've matched all the spring groups: the configuration is valid if none
+  of the remaining springs is broken
+
+We're left with two possible cases:
+
+- we're looking at a good spring or we're guessing that a `?` stands for
+  a good spring: the configuration is valid if the remaining springs match
+  all the groups
+- we're looking at a bad spring or we're guessing that a `?` stands for a
+  broken spring: the configuration is valid if either
+
+  - we're left with just enough springs to examine to match the group we're
+    examining: all of the remaining chars must be `#` or `?`
+  - we're left with more springs than the group we're looking at: the
+    configuration is valid only if the next chars are `#` or `?` and the
+    one after them is a `.` because continuous groups must be separated
+    by at least one good spring.
+
+In every one of the above cases the solution of the problem is equal
+to the solution of the same problem on a smaller string (the original
+one minus the first `g` chars with `g` the number of springs in the first
+group of springs) and the groups after the first. It also looks like
+we'll be solving the same sub-problem again and again so some sort of
+caching is in order. The code:
+
+```python
+def none_is_broken(springs):
+    return '#' not in springs
+
+def none_is_good(springs):
+    return '.' not in springs
+
+def configurations(springs, groups, cache={}):
+    if springs == '':
+        return 1 if groups == () else 0
+
+    if groups == ():
+        return 1 if none_is_broken(springs) else 0
+
+    key = (springs, groups)
+    if key in cache:
+        return cache[key]
+
+    res = 0
+    s, ss = springs[0], springs[1:]
+    g, gs = groups[0], groups[1:]
+
+    # good spring or guess good
+    if s in '.?':
+        res += configurations(ss, groups, cache)
+
+    # broken spring or guess broken
+    if s in '#?' and (len(springs) == g and none_is_good(springs[:g]) or
+                      len(springs) > g and none_is_good(springs[:g]) and springs[g] != '#'):
+        res += configurations(springs[g+1:], gs, cache)
+
+    cache[key] = res
+    return res
+```
+
 Notes
 -----
 
@@ -913,6 +1004,7 @@ Notes
 [d09]: #day-9---mirage-maintenance
 [d10]: #day-10---pipe-maze
 [d11]: #day-11---cosmic-expansion
+[d12]: #day-12---hot-springs
 [notes]: #notes
 
 [d01-py]: https://github.com/agnul/AdventOfCode/blob/main/2023/python/day_01.py
@@ -926,6 +1018,7 @@ Notes
 [d09-py]: https://github.com/agnul/AdventOfCode/blob/main/2023/python/day_09.py
 [d10-py]: https://github.com/agnul/AdventOfCode/blob/main/2023/python/day_10.py
 [d11-py]: https://github.com/agnul/AdventOfCode/blob/main/2023/python/day_11.py
+[d12-py]: https://github.com/agnul/AdventOfCode/blob/main/2023/python/day_12.py
 
 [HyperNeutrino]: https://www.youtube.com/playlist?list=PLnNm9syGLD3zLoIGWeHfnEekEKxPKLivw
 [wiki-lcm]: https://en.wikipedia.org/wiki/Least_common_multiple
