@@ -18,6 +18,7 @@ Table of contents
 - [Day 10 - Pipe Maze][d10]
 - [Day 11 - Cosmic Expansion][d11]
 - [Day 12 - Hot Springs][d12]
+- [Day 13 - Point of Incidence][d13]
 - [Notes][notes]
 
 
@@ -984,6 +985,98 @@ def configurations(springs, groups, cache={}):
     return res
 ```
 
+Day 13 - Point of Incidence
+---------------------------
+
+[Solution][d13-py] - [Back to top][top]
+
+
+In day 13 we're trying to find a subset of a grid that is reflects the same
+pattern of `.` and `#` characters either horizontally along some row or
+vertically along some column. The reflection needs not to be complete, for
+example in the grid below only rows `(4, 5)`, `(3, 6)` and `(2, 7)` reflect
+eacn other
+
+```text
+1 #...##..#
+2 #....#..# v
+3 ..##..### v
+4 #####.##. v
+5 #####.##. ^
+6 ..##..### ^
+7 #....#..# ^
+```
+
+For part one we want to find the row or column along which each grid in the
+input reflectsc, summing `100` plus the row index for horizontal reflections
+and just the column index for vertical ones. There's no parsing involved, we
+just `split()` on `\n\n` to separate the grids and then try each row to see
+if it's a possible reflection point. Note we start from row `1` since a valid
+reflection it's made of at least two rows (`0` and `1` in this case)
+
+```python
+rows = grid.splitlines()
+for r in range(1, len(rows)):
+    total += 100 * r if is_reflection(rows, r) else 0
+```
+
+Checking for a reflection involves just finding out how many rows it would
+cover and then comparing the rows
+
+```python
+def is_reflection(grid, row):
+    size = min(row, len(grid) - row)
+    return all(grid[row-i-1] == grid[row+i] for i in range(0, size))
+```
+
+Checking for reflections along a column... we don't want to do that, we'll
+just flip the grid and reuse the row code:
+
+```python
+cols = [''.join(c) for c in zip(*rows)]
+for c in range(1, len(cols)):
+    total += c if is_reflection(cols, c) else 0
+```
+
+Putting it all together for part one we just need
+
+```python
+def part_1(data):
+    total = 0
+    for grid in data:
+        rows = grid.splitlines()
+        for r in range(1, len(rows)):
+            total += 100 * r if is_reflection(rows, r) else 0
+
+        cols = [''.join(c) for c in zip(*rows)]
+        for c in range(1, len(cols)):
+            total += c if is_reflection(cols, c) else 0
+    return total
+```
+
+In part two we're told that on each grid there's exactly one row or column
+that has one symbol that should be flipped from `.` to `#` or viceversa,
+causing the reflection we're looking for to change. The code above still
+works, we just need to update the function that checks for reflections:
+
+```python
+def is_reflection_pt2(grid, row):
+    size = min(row, len(grid) - row)
+    differences = 0
+    for i in range(0, size):
+        differences += sum(0 if a == b else 1 for a, b in zip(grid[row-i-1], grid[row+i]))
+    return differences == 1
+```
+
+we're still checking a subset of rows but now we don't need all of them
+to be exactly equal to their counterpart, we can tolerate a single error. We
+can just sum `1` each time a symbol on two rows differs, and `0` when they're
+equal. If after checking all the rows in the subset the total number of errors
+is equal to `1` we've found the reflection we were looking for. Note that the
+function for part two could be used for part one as well, only checking for
+`0` errors instead of `1`.
+
+
 Notes
 -----
 
@@ -1005,6 +1098,7 @@ Notes
 [d10]: #day-10---pipe-maze
 [d11]: #day-11---cosmic-expansion
 [d12]: #day-12---hot-springs
+[d13]: #day-13---point-of-incidence
 [notes]: #notes
 
 [d01-py]: https://github.com/agnul/AdventOfCode/blob/main/2023/python/day_01.py
@@ -1019,6 +1113,7 @@ Notes
 [d10-py]: https://github.com/agnul/AdventOfCode/blob/main/2023/python/day_10.py
 [d11-py]: https://github.com/agnul/AdventOfCode/blob/main/2023/python/day_11.py
 [d12-py]: https://github.com/agnul/AdventOfCode/blob/main/2023/python/day_12.py
+[d13-py]: https://github.com/agnul/AdventOfCode/blob/main/2023/python/day_13.py
 
 [HyperNeutrino]: https://www.youtube.com/playlist?list=PLnNm9syGLD3zLoIGWeHfnEekEKxPKLivw
 [wiki-lcm]: https://en.wikipedia.org/wiki/Least_common_multiple
