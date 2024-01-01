@@ -19,6 +19,8 @@ Table of contents
 - [Day 11 - Cosmic Expansion][d11]
 - [Day 12 - Hot Springs][d12]
 - [Day 13 - Point of Incidence][d13]
+- [Day 14 - Parabolic Reflector Dish][d14]
+- [Day 15 - Lens Library][d15]
 - [Notes][notes]
 
 
@@ -1077,6 +1079,152 @@ function for part two could be used for part one as well, only checking for
 `0` errors instead of `1`.
 
 
+Day 14 - Parabolic Reflector Dish
+---------------------------------
+
+[Solution][d14-py] - [Back to top][top]
+
+In day 14 we're tilting a dish with some rocks on it: the rocks `O` will roll
+until they reach the edge of the dish or a square rock `#`. After the rocks
+have reached they resting position we can calculate the load they put on the
+top side of the dish by adding `n` points for each rock on a single line,
+with `n` being the distance of the rock from the bottom side.
+
+In part 1 we're asked to just tillt the dish north, so all rocks will roll
+to the top. Dealing with left-to-right strings is much easier than working
+with grid columns, so we'll just transpose the initial grid:
+
+```python
+def transpose(grid):
+    return tuple(''.join(column) for column in zip(*grid))
+```
+
+Rocks will either roll all to the left or to the right until they reach an
+edge or a `#` character. We can split the problem of rolling all the rocks
+on a line on the simpler problem of moving all rocks to the left or to the
+right of the spans between an edge and a `#` or between `#`s
+
+```python
+def roll_left(rocks):
+    return ''.join(sorted(rocks, reverse=True))
+
+def roll_right(rocks):
+    return ''.join(sorted(rocks))
+```
+
+Tilting the dish to the north then is just
+
+```python
+def tilt_north(dish):
+    cols = transpose(dish)
+    tilted = tuple('#'.join([roll_left(span) for span in c.split('#')]) for c in cols)
+    return transpose(tilted)
+```
+
+and part 1 is simply
+
+```python
+def part_1(dish):
+    return sum(line.count('O') * (len(dish) - i) for i, line in enumerate(tilt_north(dish)))
+```
+
+In part 2 we want to repeat a single cycle of tilting the dish nort, west, south
+and then east for a ludicrous number of times. We'll need
+
+```python
+def tilt_west(dish):
+    return tuple('#'.join([roll_left(span) for span in row.split('#')]) for row in dish)
+
+def tilt_south(dish):
+    cols = transpose(dish)
+    tilted = tuple('#'.join([roll_right(span) for span in c.split('#')]) for c in cols)
+    return transpose(tilted)
+
+def tilt_east(dish):
+    return tuple('#'.join([roll_right(span) for span in row.split('#')]) for row in dish)
+
+def spin(dish):
+    dish = tilt_north(dish)
+    dish = tilt_west(dish)
+    dish = tilt_south(dish)
+    dish = tilt_east(dish)
+    return dish
+```
+
+but then calling `spin` for a trillion will take a while. **Surely** some rock
+configuration will repeat, so if we just determine the initial configuration of
+a loop and the loop length we'll cut down the time to reach the trillionth
+configuration
+
+```python
+def part_2(dish):
+    seen = {dish}
+    steps = [dish]
+
+    iterations = 0
+    while True:
+        iterations += 1
+        dish = spin(dish)
+        if dish in seen:
+            break
+        seen.add(dish)
+        steps.append(dish)
+
+    loop_start = steps.index(dish)
+    loop_size = iterations - loop_start
+    result = steps[loop_start + (1000000000 - loop_start) % loop_size]
+
+    return sum(line.count('O') * (len(result) - i) for i, line in enumerate(result))
+```
+
+
+Day 15 - Lens Library
+---------------------
+
+[Solution][d15-py] - [Back to top][top]
+
+In day 15 we're re-inventing hashing. Part one wants us to calculate the sum of
+the comma separated parts of the input:
+
+```python
+def HASH(step):
+    return reduce(lambda acc, c: ((acc + ord(c)) * 17) % 256, step, 0)
+
+def part_1(init_sequence):
+    return sum(HASH(s) for s in init_sequence.split(','))
+```
+
+Part two explains what the parts in the input text are: instructions on
+adding and removing lenses from boxes: each instruction is made of a label,
+followed by a `-` sign or an `=` sign and a number. The `-` removes the
+lens labeled from the box indicated by the hash code of the label. The `=`
+labels a lens of the given focal length with the instruction label and puts
+it in the box indicated by the hash of the label.
+
+```python
+def add_lens(box, label, focal_length):
+    box[label] = focal_length
+
+def remove_lens(box, label):
+    if label in box:
+        del box[label]
+
+def part_2(init_sequence):
+    boxes = [dict() for _ in range(256)]
+    for step in init_sequence.split(','):
+        label, focal_length = re.split(r'[-=]', step)
+        if focal_length:
+            add_lens(boxes[HASH(label)], label, int(focal_length))
+        else:
+            remove_lens(boxes[HASH(label)], label)
+    total = 0
+    for i, box in enumerate(boxes, 1):
+        for j, label in enumerate(box, 1):
+            total += i * j * box[label]
+    return total
+```
+
+
 Notes
 -----
 
@@ -1099,6 +1247,8 @@ Notes
 [d11]: #day-11---cosmic-expansion
 [d12]: #day-12---hot-springs
 [d13]: #day-13---point-of-incidence
+[d14]: #day-14---parabolic-reflector-dish
+[d15]: #day-15---lens-library
 [notes]: #notes
 
 [d01-py]: https://github.com/agnul/AdventOfCode/blob/main/2023/python/day_01.py
@@ -1114,6 +1264,8 @@ Notes
 [d11-py]: https://github.com/agnul/AdventOfCode/blob/main/2023/python/day_11.py
 [d12-py]: https://github.com/agnul/AdventOfCode/blob/main/2023/python/day_12.py
 [d13-py]: https://github.com/agnul/AdventOfCode/blob/main/2023/python/day_13.py
+[d14-py]: https://github.com/agnul/AdventOfCode/blob/main/2023/python/day_14.py
+[d15-py]: https://github.com/agnul/AdventOfCode/blob/main/2023/python/day_15.py
 
 [HyperNeutrino]: https://www.youtube.com/playlist?list=PLnNm9syGLD3zLoIGWeHfnEekEKxPKLivw
 [wiki-lcm]: https://en.wikipedia.org/wiki/Least_common_multiple
