@@ -22,7 +22,7 @@ def is_safe(report):
     return all(increasing(report)) or all(decreasing(report))
 
 def can_apply_dampener(report):
-    return any([is_safe(report[0:i] + report[i+1:]) for i in range(len(report))])
+    return any(is_safe(report[0:i] + report[i+1:]) for i in range(len(report)))
 
 def part_1(reports):
     return len([r for r in reports if is_safe(r)])
