@@ -2,7 +2,7 @@ Advent of Code 2024
 ===================
 
 Advent of code 2024 done in... think of Python like my equivalent of [Chef
-Jean-Pierre Emotional Support Butter][butter]. 
+Jean-Pierre Emotional Support Butter][butter].
 
 Table of contents
 -----------------
@@ -19,6 +19,16 @@ Table of contents
 - [Day 11: Plutonian Pebbles][d11]
 - Day 12: Garden Groups - You would think I don't like grids...
 - [Day 13: Day 13: Claw Contraption][d13]
+- Day 14: Restroom Redoubt
+- Day 15: Warehouse Woes
+- Day 16: Reindeer Maze
+- Day 17: Chronospatial Computer
+- Day 18: RAM Run
+- Day 19: Linen Layout
+- Day 20: Race Condition
+- Day 21: Keypad Conundrum
+- [Day 22: Monkey Market][d22]
+- [Day 23: LAN Party][d23]
 
 
 Day 1 - Historian Hysteria
@@ -56,7 +66,7 @@ Day 2 - Red-Nosed Reports
 
 We've got some lists of numbers, for each list we want to make sure that
 items are always increasing or decreasing, and the difference between each
-pair of consecutive ones is at least one and at most three. Count the 
+pair of consecutive ones is at least one and at most three. Count the
 'good' sequences.
 
 In part two we must to the same, with the twist that a sequence is also
@@ -85,7 +95,7 @@ def part_2(reports):
     return len([r for r in reports if is_safe(r) or can_apply_dampener(r)])
 ```
 
-Day 3 - Mull It Over 
+Day 3 - Mull It Over
 --------------------
 
 [Solution][d03-py] - [Back to top][top]
@@ -125,7 +135,7 @@ Day 5 - Print Queue
 
 [Solution][d05-py] - [Back to top][top]
 
-We got some pairs of numbers (let's call them rules) and some lists of 
+We got some pairs of numbers (let's call them rules) and some lists of
 numbers (let's call them updates). We want to make sure that if both numbers
 in one rule appear in the update then they must be in the order specified by
 the rule. Part one wants us to find which updates are OK and then to sum the
@@ -136,8 +146,8 @@ def parse_input(data):
     rules, updates = data.split('\n\n')
     rules = [rule.split('|') for rule in rules.splitlines()]
     rules = [(int(r1), int(r2)) for r1, r2 in rules]
-    updates = [{ int(page): pos 
-                for pos, page in enumerate(update.split(',')) } 
+    updates = [{ int(page): pos
+                for pos, page in enumerate(update.split(',')) }
                 for update in updates.splitlines()]
 
     return rules, updates
@@ -176,7 +186,7 @@ def part_2(rules, updates):
     bad_ones = list(filter(lambda u: not is_good(rules, u), updates))
     fixed = [sorted(u.items(), key=cmp_to_key(compare_update)) for u in bad_ones]
     s = 0
-    for f in fixed: 
+    for f in fixed:
         l = len(f)
         s += f[l//2][0]
     return s
@@ -361,6 +371,119 @@ def part_2(eqs):
     return part_1(eqs)
 ```
 
+
+Day 22: Monkey Business
+-----------------------
+
+[Solution][d22-py] - [Back to top][top]
+
+We have a bunch of numbers that we need to _evolve_ two thousand times. Part one
+wants us to sum the remainders of dividing each eveolved number by ten. (Bitwise
+operations because they're fun, not that it will save any time in python)
+
+```python
+def evolve(initial, rounds=1):
+    res = initial
+    for _ in range(rounds):
+        res = ((res <<  6) ^ res) & 0xffffff
+        res = ((res >>  5) ^ res) & 0xffffff
+        res = ((res << 11) ^ res) & 0xffffff
+    return res
+
+
+def part_1(secrets):
+    return sum(evolve(s, 2000) for s in secrets)
+```
+
+In part two we're still evolving the above numbers, but we want to keep track
+of how they change after each round, saving the last four differences between
+a value and the previous one. Each sequence of four differences could appear
+multiple times in the evolution of a single initial number and could (or could
+not) appear independently in the evolution of each initial number. For each
+one of those we care only for the initial occurrence of a given four-difference
+sequence, at which time we save the value (modulo ten) of the fifth eveolved
+number.
+
+```python
+def part_2(secrets):
+    sales = defaultdict(int)
+    for s in secrets:
+        seen = set()
+        window = deque([s], maxlen=5)
+        for _ in range(1999):
+            window.append(evolve(window[-1]))
+            if len(window) < 5:
+                continue
+            diffs = tuple(window[i] % 10 - window[i-1] % 10 for i in range(1, 5))
+            if diffs in seen:
+                continue
+            seen.add(diffs)
+            sales[diffs] += window[-1] % 10
+    return max(sales.values())
+```
+
+
+Day 23: LAN Party
+-----------------
+
+[Solution][d23-py] - [Back to top][top]
+
+We've got a series of string pairs representing (directionless) connections
+between computers and we want to determine the groups of those computers that
+are completely interconnected. (Note for me: if `a` is connected to `b` and `c`
+those are not completely interconnected since there's no connection between
+`b` and `c` ;-))
+
+Part one wants us to count the groups of three completely connected computers
+in which at least one computer name starts with `t`. Suppose we represent our
+network as a map from a computer to the set of computers to which it has a
+direct connection
+
+```python
+def parse_input(data):
+    network = defaultdict(set)
+    for line in data.splitlines():
+        l, r = line.split('-')
+        network[l].add(r)
+        network[r].add(l)
+    return network
+```
+
+then we can for each computer in the network check if any of the computers
+the initial one is connected to has some connections in common. Note that
+`a-b-c` is the same ad `c-a-b` so we sort the computer names to keep the
+triplets unique
+
+```python
+def part_1(network):
+    triples = set()
+    for a in network:
+        for b in network[a]:
+            for c in network[a] & network[b]:
+                triples.add(tuple(sorted([a, b, c])))
+    return len([t for t in triples if any(c.startswith('t') for c in t)])
+```
+
+Part two wants the computer names in the biggest set of interconnected
+computers... and that sounds as a [max clique problem][clique] on a
+graph for which we can blatantly copy the [algorith from wikipedia][bk-algo],
+again taking advantage of python's `set`s. After iteratively findind all the
+possible cliques we just take the maximum one sorting by length and concatenate
+the correspoing computer names sorted alphabetically as requested.
+
+```python
+def bron_kerbosch(N, R, P, X):
+    if not P or X:
+        yield R
+    while P:
+        v = P.pop()
+        yield from bron_kerbosch(N, R | {v} , P & N[v], X & N[v])
+        X.add(v)
+
+def part_2(network):
+    return ','.join(sorted(max(bron_kerbosch(network, set(), set(network.keys()), set()), key=len)))
+```
+
 ---
 [top]: #advent-of-code-2024
 
@@ -372,6 +495,8 @@ def part_2(eqs):
 [d09]: #day-9---disk-fragmenter
 [d11]: #day-11---plutonian-pebbles
 [d13]: #day-13---claw-contraption
+[d22]: #day-22---monkey-market
+[d23]: #day-23---lan-party
 
 [d01-py]: https://github.com/agnul/AdventOfCode/blob/main/2024/python/day_01.py
 [d02-py]: https://github.com/agnul/AdventOfCode/blob/main/2024/python/day_02.py
@@ -381,7 +506,13 @@ def part_2(eqs):
 [d09-py]: https://github.com/agnul/AdventOfCode/blob/main/2024/python/day_09.py
 [d11-py]: https://github.com/agnul/AdventOfCode/blob/main/2024/python/day_11.py
 [d13-py]: https://github.com/agnul/AdventOfCode/blob/main/2024/python/day_13.py
+[d22-py]: https://github.com/agnul/AdventOfCode/blob/main/2024/python/day_22.py
+[d23-py]: https://github.com/agnul/AdventOfCode/blob/main/2024/python/day_23.py
 
 [butter]: https://www.youtube.com/watch?v=HvT071_HVqA&t=312s
 [cramer]: https://en.wikipedia.org/wiki/Cramer%27s_rule
 [hn-day5]: https://www.youtube.com/watch?v=BHFnoc4bw3U
+[clique]: https://en.wikipedia.org/wiki/Clique_problem
+[bk-algo]: https://en.wikipedia.org/wiki/Bron%E2%80%93Kerbosch_algorithm
+
+0432 491369
