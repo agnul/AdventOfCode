@@ -23,33 +23,52 @@ def ev(inputs, gates, g):
         return (a or b) and not a == b
     raise AssertionError(f'Invalid gate {op}')
 
+def valid_xor(circuit, a, b):
+    if (a[0] == 'x' and b[0] == 'y'
+        or a[0] == 'y' and b[0] == 'x'):
+        return True
+
+    _, op_a, _ = circuit[a]
+    _, op_b, _ = circuit[b]
+    if op_a == 'OR' or op_b == 'OR':
+        return True
+
+    return False
+
+def valid_and(circuit, a, b):
+    if (a[0] == 'x' and b[0] == 'y'
+        or a[0] == 'y' and b[0] == 'x'):
+        return True
+
+    _, op_a, _ = circuit[a]
+    _, op_b, _ = circuit[b]
+    if op_a == 'OR' or op_b == 'OR':
+        return True
+
+    return False
+
+def valid_or(circuit, a, b):
+    _, op_a, _ = circuit[a]
+    _, op_b, _ = circuit[b]
+    if op_a == 'AND' and op_b == 'AND':
+        return True
+
+    return False
+
 def debug(circuit):
     adders = [None] * 45
     errs = []
     for g in circuit:
         i0, op, i1 = circuit[g]
         if op == 'XOR':
-            if i0.startswith('x') or i0.startswith('y'):
-                i = int(i0[1:])
-                if not adders[i]: adders[i] = {}
-                adders[i]['inputs'] = (i0, i1)
-            elif g.startswith('z'):
-                i = int(g[1:])
-                if not adders[i]: adders[i] = {}
-                adders[i]['output'] = (i0, i1)
-            else:
-                print(f'{g} should not be the result of {i0} {op} {i1}')
-                errs.append(g)
+            if not (valid_xor(circuit, i0, i1) or g == 'z01'): errs.append(g)
         elif op == 'AND':
-            if i0.startswith('x') or i0.startswith('y'):
-                i = int(i0[1:])
-                if not adders[i]: adders[i] = {}
-                adders[i]['carry'] = (i0, i1)
+            if not valid_and(circuit, i0, i1): errs.append(g)
         elif op == 'OR':
-            pass
+            if not valid_or(circuit, i0, i1): errs.append(g)
         else:
             raise AssertionError(f'Invalid gate {op}.')
-    return adders
+    return errs
 
 
 def part_1(inputs, gates):
